@@ -1,0 +1,28 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code workspace settings
+.vscode/
+
+# Test results and coverage
+[Tt]est[Rr]esult*/
+*.trx
+coverage/
+coverage*.xml
+
+# Logs and local configuration
+*.log
+appsettings.Local.json
+
+# Publish and package artifacts
+publish/
+*.nupkg
+*.snupkg

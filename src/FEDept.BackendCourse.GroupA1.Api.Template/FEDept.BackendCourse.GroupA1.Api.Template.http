@@ -1,0 +1,5 @@
+@FEDept.BackendCourse.GroupA1.Api.Template_HostAddress = http://localhost:5117
+
+GET {{FEDept.BackendCourse.GroupA1.Api.Template_HostAddress}}/health
+
+###
