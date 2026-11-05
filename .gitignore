@@ -27,3 +27,4 @@ appsettings.Development.json
 publish/
 *.nupkg
 *.snupkg
+.idea/
