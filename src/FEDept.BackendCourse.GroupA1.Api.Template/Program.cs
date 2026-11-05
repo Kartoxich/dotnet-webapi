@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Npgsql;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -45,6 +46,18 @@ app.UseHttpsRedirection();
 
 app.MapGet("/health", () => Results.Ok())
     .WithName("GetHealth");
+
+var connectionString = builder.Configuration
+                           .GetConnectionString("Default")
+                       ?? throw new InvalidOperationException("Missing ConnectionStrings:Default");
+
+app.MapGet("/db-info", async () =>
+{
+    await using var conn = new NpgsqlConnection(connectionString);
+    await conn.OpenAsync();
+    await using var cmd = new NpgsqlCommand("SELECT version();", conn);
+    return Results.Ok(await cmd.ExecuteScalarAsync());
+});
 
 app.Run();
 
