@@ -1,38 +1,13 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using FEDept.BackendCourse.GroupA1.Api.Template.Extensions;
 using Npgsql;
-using OpenTelemetry.Logs;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
-const string serviceName = "orders-api";
 
-builder.Services.AddOpenApi()
-    .AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService(
-        serviceName: serviceName,
-        serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString()))
-    .WithTracing(tracing => tracing
-        .AddAspNetCoreInstrumentation(options => options.RecordException = true)
-        .AddHttpClientInstrumentation()
-        .AddSource(OrdersTelemetry.ActivitySource.Name)
-        .AddOtlpExporter())
-    .WithMetrics(metrics => metrics
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddRuntimeInstrumentation()
-        .AddMeter(OrdersTelemetry.Meter.Name)
-        .AddOtlpExporter());
-
-builder.Logging.AddOpenTelemetry(logging =>
-{
-    logging.IncludeFormattedMessage = true;
-    logging.IncludeScopes = true;
-    logging.ParseStateValues = true;
-    logging.AddOtlpExporter();
-});
+builder.Services.AddOpenApi();
+builder.Services.AddAppTelemetry();
+builder.Logging.AddAppTelemetry();
 
 var app = builder.Build();
 
