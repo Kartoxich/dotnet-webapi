@@ -21,6 +21,7 @@ coverage*.xml
 # Logs and local configuration
 *.log
 appsettings.Local.json
+appsettings.Development.json
 
 # Publish and package artifacts
 publish/
