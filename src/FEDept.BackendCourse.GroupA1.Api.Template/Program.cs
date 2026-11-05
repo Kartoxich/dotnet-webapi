@@ -44,12 +44,24 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapGet("/health", () => Results.Ok())
-    .WithName("GetHealth");
-
 var connectionString = builder.Configuration
-                           .GetConnectionString("Default")
-                       ?? throw new InvalidOperationException("Missing ConnectionStrings:Default");
+    .GetConnectionString("Default") ??
+    throw new InvalidOperationException("Missing ConnectionStrings:Default");
+
+app.MapGet("/health", async () =>
+{
+    try
+    {
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+        return Results.Ok(new { status = "ok", db = "up" });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"db unreachable: {ex.Message}");
+    }
+});
+
 
 app.MapGet("/db-info", async () =>
 {
