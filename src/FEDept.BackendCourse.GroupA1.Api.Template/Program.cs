@@ -1,12 +1,23 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using FEDept.BackendCourse.GroupA1.Api.Template.Extensions;
-using Npgsql;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Health;
 
 var builder = WebApplication.CreateBuilder(args);
+var connectionString = builder.Configuration
+    .GetConnectionString("Default") ??
+    throw new InvalidOperationException("Missing ConnectionStrings:Default");
 
-builder.Services.AddOpenApi();
-builder.Services.AddAppTelemetry();
+builder.Services.AddOpenApi()
+    .AddAppTelemetry()
+    .AddProblemDetails()
+    .AddSingleton(new UserRepository(connectionString))
+    .ConfigureHttpJsonOptions(o =>
+    o.SerializerOptions.Converters.Add(
+        new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 builder.Logging.AddAppTelemetry();
 
 var app = builder.Build();
@@ -17,34 +28,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseExceptionHandler();
 app.UseHttpsRedirection();
 
-var connectionString = builder.Configuration
-    .GetConnectionString("Default") ??
-    throw new InvalidOperationException("Missing ConnectionStrings:Default");
-
-app.MapGet("/health", async () =>
-{
-    try
-    {
-        await using var conn = new NpgsqlConnection(connectionString);
-        await conn.OpenAsync();
-        return Results.Ok(new { status = "ok", db = "up" });
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem($"db unreachable: {ex.Message}");
-    }
-});
-
-
-app.MapGet("/db-info", async () =>
-{
-    await using var conn = new NpgsqlConnection(connectionString);
-    await conn.OpenAsync();
-    await using var cmd = new NpgsqlCommand("SELECT version();", conn);
-    return Results.Ok(await cmd.ExecuteScalarAsync());
-});
+app.MapHealthEndpoints(connectionString);
+app.MapAuthEndpoints();
 
 app.Run();
 
