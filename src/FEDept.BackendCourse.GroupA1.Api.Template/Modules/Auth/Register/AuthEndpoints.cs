@@ -4,6 +4,7 @@ public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this WebApplication app)
     {
-        app.MapPost("/auth/register", RegisterHandler.HandleAsync);
+        app.MapPost("/auth/register", RegisterHandler.HandleAsync)
+            .RequireRateLimiting(AuthRateLimiting.RegisterPolicyName);
     }
 }
