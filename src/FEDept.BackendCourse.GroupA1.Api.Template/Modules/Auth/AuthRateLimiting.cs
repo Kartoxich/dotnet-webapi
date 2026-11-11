@@ -1,4 +1,6 @@
 using System.Threading.RateLimiting;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
+using Microsoft.AspNetCore.Mvc;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
 
@@ -29,16 +31,20 @@ public static class AuthRateLimiting
 
             options.OnRejected = async (context, ct) =>
             {
+                var response = context.HttpContext.Response;
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan retry))
                 {
-                    context.HttpContext.Response.Headers.RetryAfter =
-                        ((int)Math.Ceiling(retry.TotalSeconds)).ToString();
+                    response.Headers.RetryAfter = ((int)Math.Ceiling(retry.TotalSeconds)).ToString();
                 }
 
                 context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-                await context.HttpContext.Response.WriteAsJsonAsync(
-                    new { error = "too many registration attempts" }, ct);
+                await response.WriteAsJsonAsync(new ProblemDetails
+                {
+                    Title = "Too many registration attemts",
+                    Type = RegisterErrorTypes.RegisterRateLimit,
+                    Status = StatusCodes.Status429TooManyRequests
+                }, ct);
             };
         });
 

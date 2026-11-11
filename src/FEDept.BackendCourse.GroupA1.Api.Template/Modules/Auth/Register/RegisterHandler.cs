@@ -13,11 +13,11 @@ public class RegisterHandler
     {
         var email = EmailNormalizer.Normalize(request.Email);
 
-        var error = RegisterValidator.Validate(email, request.Password);
-        if (error is not null)
+        var errors = RegisterValidator.Validate(email, request.Password);
+        if (errors is not null)
         {
-            logger.LogWarning("register rejected: {Reason}", error);
-            return Results.BadRequest(new { error });
+            logger.LogWarning("register rejected: {Fields}", string.Join(",", errors));
+            return Results.ValidationProblem(errors);
         }
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, workFactor: 12);
@@ -34,7 +34,11 @@ public class RegisterHandler
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
         {
             logger.LogWarning("register conflict: {Email}", email);
-            return Results.Conflict(new { error = "Email is already registered"});
+            return Results.Problem(
+                title: "Email is already registered",
+                type: RegisterErrorTypes.EmailTaken,
+                statusCode: StatusCodes.Status409Conflict
+            );
         }
     }
 }
