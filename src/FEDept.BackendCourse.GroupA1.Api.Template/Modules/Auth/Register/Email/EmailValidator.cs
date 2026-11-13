@@ -4,12 +4,10 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
 
 public static partial class EmailValidator
 {
-    private const string EmailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
+    private const string EmailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+\z";
 
     [GeneratedRegex(EmailPattern, RegexOptions.CultureInvariant)]
     private static partial Regex EmailRegex();
-
-    public static string Normalize(string email) => email.Trim().ToLowerInvariant();
 
     public static string? Validate(string? email)
     {
@@ -18,11 +16,8 @@ public static partial class EmailValidator
             return "Email is required";
         }
 
-        if (!EmailRegex().IsMatch(email))
-        {
-            return "Email is not valid";
-        };
-
-        return null;
+        return !EmailRegex().IsMatch(email)
+            ? "Email is not valid"
+            : null;
     }
 }
