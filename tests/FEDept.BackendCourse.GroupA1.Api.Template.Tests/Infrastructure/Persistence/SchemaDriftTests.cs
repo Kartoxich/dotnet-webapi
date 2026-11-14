@@ -61,5 +61,6 @@ public class SchemaDriftTests
             .ToList();
 
         Assert.Empty(offenders);
+        Assert.Equal("users", tableName);
     }
 }

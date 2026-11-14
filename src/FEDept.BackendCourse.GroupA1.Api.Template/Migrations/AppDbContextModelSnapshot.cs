@@ -22,6 +22,60 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm.RegistrationChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("registration_challenge_id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int>("Attempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("LastSentAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_sent_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("otp")
+                        .HasColumnName("method");
+
+                    b.Property<byte[]>("SecretHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("secret_hash");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("registration_challenges", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_challenges_method", "method IN ('otp', 'magic_link')");
+                        });
+                });
+
             modelBuilder.Entity("FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -65,6 +119,15 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Migrations
                         {
                             t.HasCheckConstraint("ck_users_status", "status IN ('pending', 'active')");
                         });
+                });
+
+            modelBuilder.Entity("FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm.RegistrationChallenge", b =>
+                {
+                    b.HasOne("FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }
