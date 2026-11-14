@@ -4,7 +4,7 @@ public class RegistrationChallenge
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public byte[] SecretHash { get; set; } = null;
+    public byte[] SecretHash { get; set; }
     public string Method { get; set; } = "otp";
     public int Attempts { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
