@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FEDept.BackendCourse.GroupA1.Api.Template.Extensions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Health;
 
@@ -14,6 +15,7 @@ builder.Services.AddOpenApi()
     .AddAppTelemetry()
     .AddProblemDetails()
     .AddSingleton(new UserRepository(connectionString))
+    .AddSingleton(new ChallengeRepository(connectionString))
     .AddAuthRateLimiting(builder.Configuration)
     .ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(

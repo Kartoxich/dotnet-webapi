@@ -10,6 +10,8 @@ public class UserRepository(string connectionString)
         RETURNING id
     """;
 
+    private const string GetIdByEmailSql = "SELECT id FROM users WHERE email = @email";
+
     public async Task<Guid> CreateAsync(
         string email, string passwordHash, UserStatus status, CancellationToken ct
     )
@@ -23,6 +25,17 @@ public class UserRepository(string connectionString)
         cmd.Parameters.AddWithValue("@hash", passwordHash);
         cmd.Parameters.AddWithValue("@status", status.ToString().ToLowerInvariant());
 
-        return (Guid)((await cmd.ExecuteScalarAsync(ct)) ?? throw new InvalidOperationException());
+        return (Guid)(await cmd.ExecuteScalarAsync(ct) ?? throw new InvalidOperationException());
+    }
+
+    public async Task<Guid?> FindIdByEmailAsync(string email,  CancellationToken ct)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(ct);
+        await using var cmd = new NpgsqlCommand(GetIdByEmailSql, connection);
+
+        cmd.Parameters.AddWithValue("email", email);
+
+        return await cmd.ExecuteScalarAsync(ct) as Guid?;
     }
 }
