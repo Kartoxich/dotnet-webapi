@@ -9,6 +9,7 @@ public class ConfirmHandler
         ConfirmRequest request,
         UserRepository users,
         ChallengeRepository challenges,
+        IConfiguration config,
         ILogger<ConfirmHandler> logger,
         CancellationToken cancellationToken)
     {
@@ -25,6 +26,16 @@ public class ConfirmHandler
         if (userId is null)
         {
             logger.LogWarning("Confirm: no user for given email");
+            return ConfirmError.InvalidCode();
+        }
+
+        var maxAttempts = config.GetValue<int?>("Confirmation:MaxAttempts")
+            ?? throw new InvalidOperationException("Missing Confirmation:MaxAttempts");
+        var attempts = await challenges.TakeAttemptAsync(
+            userId.Value, maxAttempts, cancellationToken);
+        if (attempts is null)
+        {
+            logger.LogWarning("Confirm: no challenges for given user id");
             return ConfirmError.InvalidCode();
         }
 
