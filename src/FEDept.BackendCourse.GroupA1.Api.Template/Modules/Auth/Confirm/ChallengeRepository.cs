@@ -14,10 +14,9 @@ public class ChallengeRepository(string connectionString)
         UPDATE registration_challenges
         SET attempts = attempts + 1
         WHERE user_id = @user_id
-            AND consumed_at IS NULL
-            AND expires_at > now()
-            AND attempts < @max_attempts
-        RETURNING registration_challenge_id, secret_hash
+          AND consumed_at IS NULL
+          AND expires_at > now()
+        RETURNING registration_challenge_id, secret_hash, attempts
     """;
 
     private const string ConsumeSql = """
@@ -58,9 +57,8 @@ public class ChallengeRepository(string connectionString)
         return (Guid)(await cmd.ExecuteScalarAsync(ct) ?? throw new InvalidOperationException());
     }
 
-    public async Task<(Guid ChallengeId, byte[] SecretHash)?> TakeAttemptAsync(
+    public async Task<(Guid ChallengeId, byte[] SecretHash, int Attempts)?> TakeAttemptAsync(
         Guid userId,
-        int maxAttempts,
         CancellationToken ct
     )
     {
@@ -68,11 +66,10 @@ public class ChallengeRepository(string connectionString)
         await conn.OpenAsync(ct);
         await using var cmd = new NpgsqlCommand(TakeAttemptSql, conn);
         cmd.Parameters.AddWithValue("@user_id", userId);
-        cmd.Parameters.AddWithValue("@max_attempts", maxAttempts);
 
         await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(ct);
         return await reader.ReadAsync(ct)
-            ? (reader.GetGuid(0), reader.GetFieldValue<byte[]>(1))
+            ? (reader.GetGuid(0), reader.GetFieldValue<byte[]>(1), reader.GetInt32(2))
             : null;
     }
 

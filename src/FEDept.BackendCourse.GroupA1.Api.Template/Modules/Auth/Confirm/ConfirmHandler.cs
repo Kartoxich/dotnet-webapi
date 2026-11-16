@@ -1,3 +1,4 @@
+using System.Text;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
 
@@ -5,6 +6,14 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 
 public class ConfirmHandler
 {
+    private static int Require(IConfiguration config, string key) =>
+        config.GetValue<int?>(key) ?? throw new InvalidOperationException($"Missing {key}");
+
+    private static string RequireString(IConfiguration config, string key) =>
+        config[key] is { Length: > 0 } v
+            ? v
+            : throw new InvalidOperationException($"Missing {key}");
+
     public static async Task<IResult> HandleAsync(
         ConfirmRequest request,
         UserRepository users,
@@ -29,16 +38,23 @@ public class ConfirmHandler
             return ConfirmError.InvalidCode();
         }
 
-        var maxAttempts = config.GetValue<int?>("Confirmation:MaxAttempts")
-            ?? throw new InvalidOperationException("Missing Confirmation:MaxAttempts");
-        var attempts = await challenges.TakeAttemptAsync(
-            userId.Value, maxAttempts, cancellationToken);
-        if (attempts is null)
-        {
-            logger.LogWarning("Confirm: no challenges for given user id");
+        var maxAttempts = Require(config, "Confirmation:MaxAttempts");
+        var attempt = await challenges.TakeAttemptAsync(userId.Value, cancellationToken);
+        if (attempt is null)
             return ConfirmError.InvalidCode();
-        }
 
-        return Results.NotFound();
+        if (attempt.Value.Attempts > maxAttempts)
+            return ConfirmError.AttemptsExhausted(TimeSpan.FromMinutes(10));
+        var codeKey = RequireString(config, "Registration:CodeKey");
+        var key = Encoding.UTF8.GetBytes(codeKey);
+
+        if (request.Code != null && !CodeProtector.Matches(request.Code, key, attempt.Value.SecretHash))
+            return ConfirmError.InvalidCode();
+
+        if (!await challenges.ConsumeAsync(attempt.Value.ChallengeId, cancellationToken))
+            return ConfirmError.InvalidCode();
+
+        await users.ActivateAsync(userId.Value, cancellationToken);
+        return Results.Ok(new { status = "active" });
     }
 }
