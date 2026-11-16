@@ -16,7 +16,7 @@ public class RegisterHandler
         var errors = RegisterValidator.Validate(email, request.Password);
         if (errors is not null)
         {
-            logger.LogWarning("register rejected: {Fields}", string.Join(",", errors));
+            logger.LogWarning("Register rejected: {Fields}", string.Join(",", errors));
             return Results.ValidationProblem(errors);
         }
 
