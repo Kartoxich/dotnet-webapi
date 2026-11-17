@@ -18,8 +18,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(user => user.Id).HasColumnName("id").HasDefaultValueSql("gen_random_uuid()");
             e.Property(user => user.Email).HasColumnName("email");
             e.Property(user => user.PasswordHash).HasColumnName("password_hash");
-            e.Property(user => user.Status).HasColumnName("status")
-                .HasDefaultValue(nameof(UserStatus.Pending).ToLowerInvariant());
+            e.Property(user => user.Status)
+                .HasConversion(
+                    status => status.ToColumn(),
+                    s => UserStatusExtensions.FromColumn(s))
+                .HasColumnName("status").HasDefaultValue(UserStatus.Pending.ToColumn());
             e.Property(user => user.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.Property(user => user.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             e.ToTable("users", t => t.HasCheckConstraint(
