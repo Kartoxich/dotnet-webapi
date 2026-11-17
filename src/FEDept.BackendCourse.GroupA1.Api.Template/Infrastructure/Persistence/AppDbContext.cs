@@ -22,7 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion(
                     status => status.ToColumn(),
                     s => UserStatusExtensions.FromColumn(s))
-                .HasColumnName("status").HasDefaultValue(UserStatus.Pending.ToColumn());
+                .HasColumnName("status").HasDefaultValueSql($"'{UserStatus.Pending.ToColumn()}'");
             e.Property(user => user.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("now()");
             e.Property(user => user.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("now()");
             e.ToTable("users", t => t.HasCheckConstraint(
@@ -40,7 +40,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion(
                     method => method.ToColumn(),
                     s => ChallengeMethodExtensions.FromColumn(s))
-                .HasColumnName("method").HasDefaultValue(ChallengeMethod.Otp.ToColumn());
+                .HasColumnName("method").HasDefaultValueSql($"'{ChallengeMethod.Otp.ToColumn()}'");
             e.Property(registrationChallenge => registrationChallenge.Attempts).HasColumnName("attempts").HasDefaultValue(0);
             e.Property(registrationChallenge => registrationChallenge.ExpiresAt).HasColumnName("expires_at");
             e.Property(registrationChallenge => registrationChallenge.LastSentAt).HasColumnName("last_sent_at").HasDefaultValueSql("now()");
