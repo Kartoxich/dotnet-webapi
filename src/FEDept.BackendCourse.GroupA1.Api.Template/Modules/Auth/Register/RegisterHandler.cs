@@ -7,7 +7,7 @@ public class RegisterHandler
 {
     public static async Task<IResult> HandleAsync(
         RegisterRequest request,
-        UserRepositoryV2 users,
+        UserRepository users,
         ILogger<RegisterHandler> logger,
         CancellationToken cancellationToken)
     {

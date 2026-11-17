@@ -15,7 +15,7 @@ public class ConfirmHandler
 
     public static async Task<IResult> HandleAsync(
         ConfirmRequest request,
-        UserRepositoryV2 users,
+        UserRepository users,
         ChallengeRepository challenges,
         IConfiguration config,
         ILogger<ConfirmHandler> logger,

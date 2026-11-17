@@ -17,7 +17,7 @@ builder.Services.AddOpenApi()
     .AddAppTelemetry()
     .AddProblemDetails()
     .AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString))
-    .AddScoped<UserRepositoryV2>()
+    .AddScoped<UserRepository>()
     .AddScoped<ChallengeRepository>()
     .AddAuthRateLimiting(builder.Configuration)
     .ConfigureHttpJsonOptions(o =>

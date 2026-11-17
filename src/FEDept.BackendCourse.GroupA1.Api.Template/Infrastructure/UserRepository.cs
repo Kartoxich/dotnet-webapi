@@ -1,10 +1,9 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Persistence;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using Microsoft.EntityFrameworkCore;
 
-namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
-
-public class UserRepositoryV2(AppDbContext db)
+public class UserRepository(AppDbContext db)
 {
     public async Task<Guid> CreateAsync(
         string email,
