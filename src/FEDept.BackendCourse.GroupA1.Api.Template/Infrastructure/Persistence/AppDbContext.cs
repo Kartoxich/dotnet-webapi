@@ -33,7 +33,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(registrationChallenge => registrationChallenge.Id).HasColumnName("registration_challenge_id").HasDefaultValueSql("gen_random_uuid()");
             e.Property(registrationChallenge => registrationChallenge.UserId).HasColumnName("user_id");
             e.Property(registrationChallenge => registrationChallenge.SecretHash).HasColumnName("secret_hash");
-            e.Property(registrationChallenge => registrationChallenge.Method).HasColumnName("method").HasDefaultValue("otp");
+            e.Property(registrationChallenge => registrationChallenge.Method)
+                .HasConversion(
+                    method => method.ToColumn(),
+                    s => ChallengeMethodExtensions.FromColumn(s))
+                .HasColumnName("method").HasDefaultValue(ChallengeMethod.Otp.ToColumn());
             e.Property(registrationChallenge => registrationChallenge.Attempts).HasColumnName("attempts").HasDefaultValue(0);
             e.Property(registrationChallenge => registrationChallenge.ExpiresAt).HasColumnName("expires_at");
             e.Property(registrationChallenge => registrationChallenge.LastSentAt).HasColumnName("last_sent_at").HasDefaultValueSql("now()");
@@ -43,6 +47,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(registrationChallenge => registrationChallenge.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(rc => rc.UserId)
+                .IsUnique()
+                .HasFilter("consumed_at IS NULL");
             e.ToTable("registration_challenges", rc => rc.HasCheckConstraint(
                 "ck_challenges_method", "method IN ('otp', 'magic_link')"));
         });

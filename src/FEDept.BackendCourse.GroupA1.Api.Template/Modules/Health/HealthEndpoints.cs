@@ -26,13 +26,5 @@ public static class HealthEndpoints
                     statusCode: StatusCodes.Status503ServiceUnavailable);
             }
         });
-
-        app.MapGet("/db-info", async () =>
-        {
-            await using var conn = new NpgsqlConnection(connectionString);
-            await conn.OpenAsync();
-            await using var cmd = new NpgsqlCommand("SELECT version();", conn);
-            return Results.Ok(await cmd.ExecuteScalarAsync());
-        });
     }
 }

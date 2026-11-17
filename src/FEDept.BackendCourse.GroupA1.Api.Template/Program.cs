@@ -1,10 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FEDept.BackendCourse.GroupA1.Api.Template.Extensions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Persistence;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Health;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration
@@ -14,8 +16,9 @@ var connectionString = builder.Configuration
 builder.Services.AddOpenApi()
     .AddAppTelemetry()
     .AddProblemDetails()
-    .AddSingleton(new UserRepository(connectionString))
-    .AddSingleton(new ChallengeRepository(connectionString))
+    .AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString))
+    .AddScoped<UserRepositoryV2>()
+    .AddScoped<ChallengeRepository>()
     .AddAuthRateLimiting(builder.Configuration)
     .ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(

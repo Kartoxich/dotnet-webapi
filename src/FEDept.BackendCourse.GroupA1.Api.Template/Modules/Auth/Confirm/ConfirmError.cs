@@ -10,7 +10,7 @@ public static class ConfirmError
         type: InvalidCodeType,
         statusCode: StatusCodes.Status400BadRequest);
 
-    public static IResult AttemptsExhausted(TimeSpan retryAfter) => Results.Problem(
+    public static IResult AttemptsExhausted() => Results.Problem(
         title: "Too many attempts",
         type: AttemptsExhastedType,
         statusCode: StatusCodes.Status429TooManyRequests);
