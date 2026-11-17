@@ -54,8 +54,8 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
-                        .HasDefaultValue("otp")
-                        .HasColumnName("method");
+                        .HasColumnName("method")
+                        .HasDefaultValueSql("'otp'");
 
                     b.Property<byte[]>("SecretHash")
                         .IsRequired()
@@ -68,7 +68,9 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasFilter("consumed_at IS NULL");
 
                     b.ToTable("registration_challenges", null, t =>
                         {
@@ -104,8 +106,8 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Migrations
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text")
-                        .HasDefaultValue("pending")
-                        .HasColumnName("status");
+                        .HasColumnName("status")
+                        .HasDefaultValueSql("'pending'");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .ValueGeneratedOnAdd()
