@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FEDept.BackendCourse.GroupA1.Api.Template.Extensions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Errors;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Persistence;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Health;
@@ -16,9 +18,13 @@ var connectionString = builder.Configuration
 builder.Services.AddOpenApi()
     .AddAppTelemetry()
     .AddProblemDetails()
+    .AddExceptionHandler<ConflictExceptionHandler>()
     .AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString))
-    .AddScoped<UserRepository>()
-    .AddScoped<ChallengeRepository>()
+    .AddScoped<IUserRepository, UserRepository>()
+    .AddScoped<IChallengeRepository, ChallengeRepository>()
+    .AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>())
+    .AddScoped<RegisterHandler>()
+    .AddScoped<ConfirmHandler>()
     .AddAuthRateLimiting(builder.Configuration)
     .ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(

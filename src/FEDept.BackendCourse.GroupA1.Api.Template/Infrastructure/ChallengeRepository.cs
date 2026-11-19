@@ -1,11 +1,10 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Persistence;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
-using Npgsql;
 
-namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
-
-public class ChallengeRepository(AppDbContext db)
+public class ChallengeRepository(AppDbContext db) : IChallengeRepository
 {
     public async Task<Guid> CreateAsync(
         Guid userId,
@@ -32,7 +31,7 @@ public class ChallengeRepository(AppDbContext db)
         return challenge.Id;
     }
 
-    public async Task<(Guid Id, byte[] SecretHash, int Attempts)?> TakeAttemptAsync(
+    public async Task<AttemptInfo?> TakeAttemptAsync(
         Guid userId, CancellationToken ct)
     {
         await using IDbContextTransaction tx = await db.Database.BeginTransactionAsync(ct);
@@ -55,7 +54,7 @@ public class ChallengeRepository(AppDbContext db)
             .SingleAsync(ct);
 
         await tx.CommitAsync(ct);
-        return (c.Id, c.SecretHash, c.Attempts);
+        return new AttemptInfo(c.Id, c.SecretHash, c.Attempts);
     }
 
     public async Task<bool> TryMarkConsumedAsync(Guid challengeId, CancellationToken ct)

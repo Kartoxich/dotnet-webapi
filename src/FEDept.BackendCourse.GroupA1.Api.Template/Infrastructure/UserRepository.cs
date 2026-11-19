@@ -1,9 +1,11 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Persistence;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
-public class UserRepository(AppDbContext db)
+public class UserRepository(AppDbContext db) : IUserRepository
 {
     public async Task<Guid> CreateAsync(
         string email,
@@ -20,7 +22,16 @@ public class UserRepository(AppDbContext db)
 
         db.Users.Add(user);
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (
+            ex.InnerException is PostgresException pg &&
+            pg.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            throw new EmailAlreadyTakenException(email);
+        }
 
         return user.Id;
     }

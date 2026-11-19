@@ -1,11 +1,12 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using Microsoft.EntityFrameworkCore;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Persistence;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IUnitOfWork
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<RegistrationChallenge> RegistrationChallenges => Set<RegistrationChallenge>();

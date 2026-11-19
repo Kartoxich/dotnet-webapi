@@ -1,81 +1,74 @@
 using System.Text;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 
-public class ConfirmHandler
+public class ConfirmHandler(
+    IUserRepository users,
+    IChallengeRepository challenges,
+    IUnitOfWork unitOfWork,
+    IConfiguration config,
+    ILogger<ConfirmHandler> logger)
 {
-    private static int Require(IConfiguration config, string key) =>
+    private int RequireInt(string key) =>
         config.GetValue<int?>(key) ?? throw new InvalidOperationException($"Missing {key}");
 
-    private static string RequireString(IConfiguration config, string key) =>
+    private string RequireString(string key) =>
         config[key] is { Length: > 0 } v
             ? v
             : throw new InvalidOperationException($"Missing {key}");
 
-    public static async Task<IResult> HandleAsync(
-        ConfirmRequest request,
-        UserRepository users,
-        ChallengeRepository challenges,
-        IConfiguration config,
-        ILogger<ConfirmHandler> logger,
-        CancellationToken ct)
+    public async Task<ConfirmResult> ConfirmAsync(string? email, string? code, CancellationToken ct)
     {
-        var email = EmailNormalizer.Normalize(request.Email);
+        var normalized = EmailNormalizer.Normalize(email);
 
-        IDictionary<string, string[]>? errors = ConfirmValidator.Validate(email, request.Code);
-        if (errors is not null)
+        if (ConfirmValidator.Validate(normalized, code) is { } errors)
         {
             logger.LogWarning("Confirm rejected: {Fields}", string.Join(",", errors.Keys));
-            return Results.ValidationProblem(errors);
+            return ConfirmResult.InvalidRequest(errors);
         }
 
-        Guid? userId = await users.FindIdByEmailAsync(email, ct);
+        var userId = await users.FindIdByEmailAsync(normalized, ct);
         if (userId is null)
         {
             logger.LogWarning("Confirm: no user for given email");
-            return ConfirmError.InvalidCode();
+            return ConfirmResult.InvalidCode;
         }
 
-        var maxAttempts = Require(config, "Confirmation:MaxAttempts");
         var attempt = await challenges.TakeAttemptAsync(userId.Value, ct);
         if (attempt is null)
         {
-            logger.LogWarning("Confirm: attempts error");
-            return ConfirmError.InvalidCode();
+            logger.LogWarning("Confirm: no live challenge");
+            return ConfirmResult.InvalidCode;
         }
 
-        if (attempt.Value.Attempts > maxAttempts)
+        if (attempt.Attempts > RequireInt("Confirmation:MaxAttempts"))
         {
             logger.LogWarning("Confirm: too many attempts");
-            return ConfirmError.AttemptsExhausted();
+            return ConfirmResult.AttemptsExhausted;
         }
 
-        var codeKey = RequireString(config, "Registration:CodeKey");
-        var key = Encoding.UTF8.GetBytes(codeKey);
-
-        if (request.Code is null || !CodeProtector.Matches(request.Code, key, attempt.Value.SecretHash))
+        var key = Encoding.UTF8.GetBytes(RequireString("Registration:CodeKey"));
+        if (code is null || !CodeProtector.Matches(code, key, attempt.SecretHash))
         {
-            logger.LogWarning("Confirm: invalid or missing code key");
-            return ConfirmError.InvalidCode();
+            logger.LogWarning("Confirm: code mismatch");
+            return ConfirmResult.InvalidCode;
         }
 
-        if (
-            !await challenges.TryMarkConsumedAsync(attempt.Value.Id, ct)
-        )
+        if (!await challenges.TryMarkConsumedAsync(attempt.Id, ct))
         {
-            logger.LogWarning("Confirm: failed to mark consumed");
-            return ConfirmError.InvalidCode();
+            logger.LogWarning("Confirm: consume lost");
+            return ConfirmResult.InvalidCode;
         }
 
         if (!await users.TryMarkActiveAsync(userId.Value, ct))
         {
-            logger.LogWarning("Confirm: failed to mark active");
-            return ConfirmError.InvalidCode();
+            logger.LogWarning("Confirm: activation lost");
+            return ConfirmResult.InvalidCode;
         }
 
-        await challenges.CommitAsync(ct);
-
-        return Results.Ok(new { status = "active" });
+        await unitOfWork.SaveChangesAsync(ct);
+        return ConfirmResult.Success;
     }
 }
