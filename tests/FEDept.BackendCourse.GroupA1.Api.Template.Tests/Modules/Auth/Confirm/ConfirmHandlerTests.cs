@@ -8,6 +8,8 @@ using Xunit;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 
+namespace FEDept.BackendCourse.GroupA1.Api.Template.Tests.Modules.Auth.Confirm;
+
 public class ConfirmHandlerTests
 {
     private const string CodeKey = "test-key-0123456789abcdef";
