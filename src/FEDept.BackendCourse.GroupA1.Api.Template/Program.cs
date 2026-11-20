@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FEDept.BackendCourse.GroupA1.Api.Template.Extensions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Email;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Errors;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Persistence;
@@ -29,6 +30,7 @@ builder.Services.AddOpenApi()
     .AddScoped<ConfirmHandler>()
     .AddSingleton<IPasswordHasher, BCryptPasswordHasher>()
     .AddSingleton<IEmailSender, SmtpEmailSender>()
+    .AddSingleton(CodeOptions.From(builder.Configuration))
     .AddAuthRateLimiting(builder.Configuration)
     .ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(

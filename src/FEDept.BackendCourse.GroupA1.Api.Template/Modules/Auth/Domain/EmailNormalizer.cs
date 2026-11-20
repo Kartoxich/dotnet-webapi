@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
+namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
 
 public static class EmailNormalizer
 {

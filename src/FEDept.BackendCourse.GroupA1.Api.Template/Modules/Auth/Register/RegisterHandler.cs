@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
-using System.Text;
+using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 
@@ -11,17 +11,9 @@ public class RegisterHandler(
     IChallengeRepository challenges,
     IPasswordHasher hasher,
     IEmailSender emailSender,
-    IConfiguration config,
+    CodeOptions codeOptions,
     ILogger<RegisterHandler> logger)
 {
-    private int RequireInt(string key) =>
-        config.GetValue<int?>(key) ?? throw new InvalidOperationException($"Missing {key}");
-
-    private string RequireString(string key) =>
-        config[key] is { Length: > 0 } v
-            ? v
-            : throw new InvalidOperationException($"Missing {key}");
-
     public async Task<RegisterResult> RegisterAsync(string? email, string? password, CancellationToken ct)
     {
         var normalized = EmailNormalizer.Normalize(email);
@@ -38,8 +30,8 @@ public class RegisterHandler(
         var userId = await users.CreateAsync(normalized, hasher.Hash(password!), ct);
 
         var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
-        var key = Encoding.UTF8.GetBytes(RequireString("Registration:CodeKey"));
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(RequireInt("Confirmation:CodeTtlMinutes"));
+        var key = codeOptions.CodeKeyBytes;
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(codeOptions.CodeTtlMinutes);
 
         await challenges.CreateAsync(userId, CodeProtector.Protect(code, key),
             ChallengeMethod.Otp, expiresAt, ct);

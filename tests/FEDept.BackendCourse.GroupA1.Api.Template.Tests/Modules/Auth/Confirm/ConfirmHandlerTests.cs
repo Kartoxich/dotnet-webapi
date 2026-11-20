@@ -1,8 +1,5 @@
 using System.Text;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
@@ -22,24 +19,16 @@ public class ConfirmHandlerTests
 
     private static AttemptInfo Live(int attempts) => new(ChallengeId, CorrectHash, attempts);
 
-    private static IConfiguration Config() =>
-        new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["Confirmation:MaxAttempts"] = "5",
-            ["Registration:CodeKey"] = CodeKey,
-        }).Build();
+    private static readonly CodeOptions Options = new()
+    {
+        MaxAttempts = 5,
+        PerMinute = 10,
+        CodeTtlMinutes = 10,
+        CodeKey = CodeKey,
+    };
 
     private static ConfirmHandler Build(FakeUsers u, FakeChallenges c, FakeUnitOfWork w) =>
-        new(u, c, w, Config(), NullLogger<ConfirmHandler>.Instance);
-
-
-    private static string Kind(IResult r) => r.GetType().Name;
-
-    private static ProblemDetails Problem(IResult r) =>
-        Assert.IsType<ProblemHttpResult>(r).ProblemDetails;
-
-    private static ConfirmResponse Body(IResult r) =>
-        Assert.IsType<Ok<ConfirmResponse>>(r).Value;
+        new(u, c, w, Options, NullLogger<ConfirmHandler>.Instance);
 
     private sealed class FakeUsers : IUserRepository
     {

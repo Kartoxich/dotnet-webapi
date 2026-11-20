@@ -1,6 +1,7 @@
 using System.Text;
+using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 
@@ -8,17 +9,9 @@ public class ConfirmHandler(
     IUserRepository users,
     IChallengeRepository challenges,
     IUnitOfWork unitOfWork,
-    IConfiguration config,
+    CodeOptions codeOptions,
     ILogger<ConfirmHandler> logger)
 {
-    private int RequireInt(string key) =>
-        config.GetValue<int?>(key) ?? throw new InvalidOperationException($"Missing {key}");
-
-    private string RequireString(string key) =>
-        config[key] is { Length: > 0 } v
-            ? v
-            : throw new InvalidOperationException($"Missing {key}");
-
     public async Task<ConfirmResult> ConfirmAsync(string? email, string? code, CancellationToken ct)
     {
         var normalized = EmailNormalizer.Normalize(email);
@@ -43,13 +36,13 @@ public class ConfirmHandler(
             return ConfirmResult.InvalidCode;
         }
 
-        if (attemptInfo.Attempts > RequireInt("Confirmation:MaxAttempts"))
+        if (attemptInfo.Attempts > codeOptions.MaxAttempts)
         {
             logger.LogWarning("Confirm: too many attempts");
             return ConfirmResult.AttemptsExhausted;
         }
 
-        var key = Encoding.UTF8.GetBytes(RequireString("Registration:CodeKey"));
+        var key = codeOptions.CodeKeyBytes;
         if (code is null || !CodeProtector.Matches(code, key, attemptInfo.SecretHash))
         {
             logger.LogWarning("Confirm: code mismatch");

@@ -1,3 +1,4 @@
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
 using Xunit;
 
