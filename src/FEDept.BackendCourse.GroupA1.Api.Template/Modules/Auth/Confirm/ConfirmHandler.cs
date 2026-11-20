@@ -36,27 +36,27 @@ public class ConfirmHandler(
             return ConfirmResult.InvalidCode;
         }
 
-        var attempt = await challenges.TakeAttemptAsync(userId.Value, ct);
-        if (attempt is null)
+        var attemptInfo = await challenges.TakeAttemptAsync(userId.Value, ct);
+        if (attemptInfo is null)
         {
             logger.LogWarning("Confirm: no live challenge");
             return ConfirmResult.InvalidCode;
         }
 
-        if (attempt.Attempts > RequireInt("Confirmation:MaxAttempts"))
+        if (attemptInfo.Attempts > RequireInt("Confirmation:MaxAttempts"))
         {
             logger.LogWarning("Confirm: too many attempts");
             return ConfirmResult.AttemptsExhausted;
         }
 
         var key = Encoding.UTF8.GetBytes(RequireString("Registration:CodeKey"));
-        if (code is null || !CodeProtector.Matches(code, key, attempt.SecretHash))
+        if (code is null || !CodeProtector.Matches(code, key, attemptInfo.SecretHash))
         {
             logger.LogWarning("Confirm: code mismatch");
             return ConfirmResult.InvalidCode;
         }
 
-        if (!await challenges.TryMarkConsumedAsync(attempt.Id, ct))
+        if (!await challenges.TryMarkConsumedAsync(attemptInfo.Id, ct))
         {
             logger.LogWarning("Confirm: consume lost");
             return ConfirmResult.InvalidCode;

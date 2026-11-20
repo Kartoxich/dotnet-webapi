@@ -1,39 +1,59 @@
+using System.Security.Cryptography;
+using System.Text;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 
-public class RegisterHandler(IUserRepository users, ILogger<RegisterHandler> logger)
+public class RegisterHandler(
+    IUserRepository users,
+    IChallengeRepository challenges,
+    IPasswordHasher hasher,
+    IEmailSender emailSender,
+    IConfiguration config,
+    ILogger<RegisterHandler> logger)
 {
-    public async Task<RegisterResult> RegisterAsync(
-        string? email,
-        string? password,
-        CancellationToken ct)
-    {
-        // TODO: Move email normalization to service
-        var normalizedEmail = EmailNormalizer.Normalize(email);
+    private int RequireInt(string key) =>
+        config.GetValue<int?>(key) ?? throw new InvalidOperationException($"Missing {key}");
 
-        // request validator should validate request body
-        // #1 - Keep it (application validation)
-        // #2 - Validation in service -> throw exception -> map exception into map level exception
-        // #3 - combination
-        if (RegisterValidator.Validate(normalizedEmail, password) is { } errors)
+    private string RequireString(string key) =>
+        config[key] is { Length: > 0 } v
+            ? v
+            : throw new InvalidOperationException($"Missing {key}");
+
+    public async Task<RegisterResult> RegisterAsync(string? email, string? password, CancellationToken ct)
+    {
+        var normalized = EmailNormalizer.Normalize(email);
+
+        if (RegisterValidator.Validate(normalized, password) is { } errors)
         {
             logger.LogWarning("Register rejected: {Fields}", string.Join(",", errors.Keys));
             return RegisterResult.InvalidRequest(errors);
         }
 
-        if (await users.FindIdByEmailAsync(normalizedEmail, ct) is not null)
+        if (await users.FindIdByEmailAsync(normalized, ct) is not null)
+            throw new EmailAlreadyTakenException(normalized);
+
+        var userId = await users.CreateAsync(normalized, hasher.Hash(password!), ct);
+
+        var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+        var key = Encoding.UTF8.GetBytes(RequireString("Registration:CodeKey"));
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(RequireInt("Confirmation:CodeTtlMinutes"));
+
+        await challenges.CreateAsync(userId, CodeProtector.Protect(code, key),
+            ChallengeMethod.Otp, expiresAt, ct);
+
+        try
         {
-            throw new EmailAlreadyTakenException(normalizedEmail);
+            await emailSender.SendConfirmationAsync(normalized, code, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Confirmation mail failed for {UserId}", userId);
         }
 
-        // TODO: Move to password service
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
-        // Move to user service
-        var id = await users.CreateAsync(normalizedEmail, passwordHash, ct);
-        logger.LogInformation("User registered: {UserId}", id);
-
-        return RegisterResult.Success(id, normalizedEmail, UserStatus.Pending);
+        logger.LogInformation("User registered: {UserId}", userId);
+        return RegisterResult.Success(userId, normalized, UserStatus.Pending);
     }
 }

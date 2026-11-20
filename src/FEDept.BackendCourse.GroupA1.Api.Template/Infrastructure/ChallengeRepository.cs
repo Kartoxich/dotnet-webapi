@@ -104,6 +104,4 @@ public class ChallengeRepository(AppDbContext db) : IChallengeRepository
 
         return id;
     }
-
-    public Task CommitAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }
