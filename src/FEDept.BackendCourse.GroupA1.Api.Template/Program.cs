@@ -10,6 +10,7 @@ using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Resend;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Health;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,10 +29,11 @@ builder.Services.AddOpenApi()
     .AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>())
     .AddScoped<RegisterHandler>()
     .AddScoped<ConfirmHandler>()
+    .AddScoped<ResendHandler>()
     .AddSingleton<IPasswordHasher, BCryptPasswordHasher>()
     .AddSingleton<IEmailSender, SmtpEmailSender>()
     .AddSingleton(CodeOptions.From(builder.Configuration))
-    .AddAuthRateLimiting(builder.Configuration)
+    .AddAuthRateLimiting(CodeOptions.From(builder.Configuration), builder.Configuration)
     .ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(
         new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));

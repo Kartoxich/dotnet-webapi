@@ -1,8 +1,7 @@
 using System.Text;
-using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Tests.Modules.Auth.Confirm;
@@ -25,53 +24,12 @@ public class ConfirmHandlerTests
         PerMinute = 10,
         CodeTtlMinutes = 10,
         CodeKey = CodeKey,
+        ResendCooldownSeconds = 0,
+        ResendPerMinute = 0,
     };
 
     private static ConfirmHandler Build(FakeUsers u, FakeChallenges c, FakeUnitOfWork w) =>
         new(u, c, w, Options, NullLogger<ConfirmHandler>.Instance);
-
-    private sealed class FakeUsers : IUserRepository
-    {
-        public Guid? IdByEmail { get; init; }
-        public bool ActivateResult { get; init; } = true;
-        public bool FindCalled { get; private set; }
-        public Guid? ActivatedId { get; private set; }
-
-        public Task<Guid> CreateAsync(string e, string p, CancellationToken ct)
-            => throw new NotSupportedException("confirm must never create users");
-
-        public Task<Guid?> FindIdByEmailAsync(string e, CancellationToken ct)
-        { FindCalled = true; return Task.FromResult(IdByEmail); }
-
-        public Task<bool> TryMarkActiveAsync(Guid id, CancellationToken ct)
-        { ActivatedId = id; return Task.FromResult(ActivateResult); }
-    }
-
-    private sealed class FakeChallenges : IChallengeRepository
-    {
-        public AttemptInfo? Attempt { get; init; }
-        public bool ConsumeResult { get; init; } = true;
-        public bool MarkConsumedCalled { get; private set; }
-
-        public Task<Guid> CreateAsync(Guid u, byte[] h, ChallengeMethod m, DateTimeOffset e, CancellationToken ct)
-            => throw new NotSupportedException("confirm must never create challenges");
-
-        public Task<Guid?> ResendAsync(Guid u, byte[] h, DateTimeOffset e, TimeSpan i, CancellationToken ct)
-            => throw new NotSupportedException("confirm must never resend");
-
-        public Task<AttemptInfo?> TakeAttemptAsync(Guid u, CancellationToken ct)
-            => Task.FromResult(Attempt);
-
-        public Task<bool> TryMarkConsumedAsync(Guid id, CancellationToken ct)
-        { MarkConsumedCalled = true; return Task.FromResult(ConsumeResult); }
-    }
-
-    private sealed class FakeUnitOfWork : IUnitOfWork
-    {
-        public int SaveCount { get; private set; }
-        public Task<int> SaveChangesAsync(CancellationToken ct = default)
-        { SaveCount++; return Task.FromResult(1); }
-    }
 
     [Fact]
     public async Task ConfirmAsync_CorrectCode_ActivatesAndSavesExactlyOnce()

@@ -27,14 +27,19 @@ public class RegisterHandler(
         if (await users.FindIdByEmailAsync(normalized, ct) is not null)
             throw new EmailAlreadyTakenException(normalized);
 
-        var userId = await users.CreateAsync(normalized, hasher.Hash(password!), ct);
+        Guid userId = await users.CreateAsync(normalized, hasher.Hash(password!), ct);
 
-        var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
-        var key = codeOptions.CodeKeyBytes;
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(codeOptions.CodeTtlMinutes);
+        var (code, hash) = ConfirmationCode.New(codeOptions.CodeKeyBytes);
+        byte[] key = codeOptions.CodeKeyBytes;
+        DateTimeOffset expiresAt = DateTimeOffset.UtcNow.AddMinutes(codeOptions.CodeTtlMinutes);
 
-        await challenges.CreateAsync(userId, CodeProtector.Protect(code, key),
-            ChallengeMethod.Otp, expiresAt, ct);
+        await challenges.IssueAsync(
+            userId,
+            hash,
+            expiresAt,
+            TimeSpan.FromSeconds(0),
+            ct
+        );
 
         try
         {

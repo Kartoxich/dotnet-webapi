@@ -3,32 +3,66 @@ using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 
 public class ChallengeRepository(AppDbContext db) : IChallengeRepository
 {
-    public async Task<Guid> CreateAsync(
-        Guid userId,
-        byte[] secretHash,
-        ChallengeMethod method,
-        DateTimeOffset expiresAt,
-        CancellationToken ct
-    )
+        public async Task<CodeIssue> IssueAsync(
+        Guid userId, byte[] secretHash, DateTimeOffset expiresAt,
+        TimeSpan cooldown, CancellationToken ct)
     {
-        var challenge = new RegistrationChallenge
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var now = DateTimeOffset.UtcNow;
+
+        // Supersede any live row — expired ones included, because they still
+        // occupy the partial unique index slot (consumed_at IS NULL).
+        var rows = await db.RegistrationChallenges
+            .Where(c => c.UserId == userId && c.ConsumedAt == null && c.LastSentAt <= now - cooldown)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.LastSentAt, now)
+                .SetProperty(c => c.SecretHash, secretHash)
+                .SetProperty(c => c.ExpiresAt, expiresAt)
+                .SetProperty(c => c.Attempts, 0), ct);
+
+        if (rows > 0)
+        {
+            await tx.CommitAsync(ct);
+            return CodeIssue.Issued;
+        }
+
+        var live = await db.RegistrationChallenges
+            .AnyAsync(c => c.UserId == userId && c.ConsumedAt == null, ct);
+
+        if (live)
+        {
+            await tx.RollbackAsync(ct);
+            return CodeIssue.Throttled;
+        }
+
+        db.RegistrationChallenges.Add(new RegistrationChallenge
         {
             UserId = userId,
             SecretHash = secretHash,
-            Method = method,
+            Method = ChallengeMethod.Otp,
             ExpiresAt = expiresAt,
             Attempts = 0,
-            LastSentAt = DateTimeOffset.UtcNow
-        };
+            LastSentAt = now,
+        });
 
-        db.RegistrationChallenges.Add(challenge);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (
+            ex.InnerException is PostgresException pg
+            && pg.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            await tx.RollbackAsync(ct);
+            return CodeIssue.Throttled;
+        }
 
-        await db.SaveChangesAsync(ct);
-
-        return challenge.Id;
+        await tx.CommitAsync(ct);
+        return CodeIssue.Issued;
     }
 
     public async Task<AttemptInfo?> TakeAttemptAsync(
@@ -69,39 +103,5 @@ public class ChallengeRepository(AppDbContext db) : IChallengeRepository
 
         registrationChallenge.ConsumedAt = DateTimeOffset.UtcNow;
         return true;
-    }
-
-    public async Task<Guid?> ResendAsync(
-        Guid userId, byte[] secretHash,
-        DateTimeOffset expiresAt,
-        TimeSpan minInterval,
-        CancellationToken ct)
-    {
-        await using IDbContextTransaction tx = await db.Database.BeginTransactionAsync(ct);
-        DateTimeOffset utcNow = DateTimeOffset.UtcNow;
-        DateTimeOffset floor = utcNow - minInterval;
-
-        var rows = await db.RegistrationChallenges
-            .Where(rc => rc.UserId == userId && rc.ConsumedAt == null && rc.LastSentAt < floor)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(rc => rc.LastSentAt, utcNow)
-                .SetProperty(rc => rc.SecretHash, secretHash)
-                .SetProperty(rc => rc.ExpiresAt, expiresAt)
-                .SetProperty(rc => rc.Attempts, 0), ct);
-
-        if (rows == 0)
-        {
-            await tx.RollbackAsync(ct);
-            return null;
-        }
-
-        var id = await db.RegistrationChallenges.AsNoTracking()
-            .Where(rc => rc.UserId == userId && rc.ConsumedAt == null && rc.ExpiresAt > DateTimeOffset.UtcNow)
-            .Select(rc => rc.Id)
-            .SingleAsync(ct);
-
-        await tx.CommitAsync(ct);
-
-        return id;
     }
 }

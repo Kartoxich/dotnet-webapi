@@ -57,4 +57,14 @@ public class UserRepository(AppDbContext db) : IUserRepository
         u.Status = UserStatus.Active;
         return true;
     }
+
+    public async Task<Guid?> FindPendingIdByEmailAsync(string email, CancellationToken ct)
+    {
+        Guid id = await db.Users.AsNoTracking()
+            .Where(u => u.Email == email && u.Status == UserStatus.Pending)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync(ct);
+
+        return id == Guid.Empty ? null : id;
+    }
 }

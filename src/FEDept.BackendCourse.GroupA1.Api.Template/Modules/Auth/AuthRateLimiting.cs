@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using Microsoft.AspNetCore.Mvc;
@@ -9,9 +10,11 @@ public static class AuthRateLimiting
 {
     public const string RegisterPolicyName = "register";
     public const string ConfirmPolicyName = "confirm";
+    public const string ResendPolicyName = "resend";
 
     public static IServiceCollection AddAuthRateLimiting(
         this IServiceCollection services,
+        CodeOptions codeOptions,
         IConfiguration config
     )
     {
@@ -44,6 +47,17 @@ public static class AuthRateLimiting
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                         AutoReplenishment = true
+                    }));
+
+            options.AddPolicy(ResendPolicyName, http =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = codeOptions.ResendPerMinute,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
                     }));
 
             options.OnRejected = async (context, ct) =>
