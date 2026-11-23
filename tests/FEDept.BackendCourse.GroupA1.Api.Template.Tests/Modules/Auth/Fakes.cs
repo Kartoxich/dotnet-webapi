@@ -57,3 +57,9 @@ internal sealed class BrokenEmailSender : IEmailSender
     public Task SendConfirmationAsync(string to, string code, CancellationToken ct)
         => throw new InvalidOperationException("mailpit is down");
 }
+
+internal sealed class NoopEmailSender : IEmailSender
+{
+    public Task SendConfirmationAsync(string to, string code, CancellationToken ct)
+        => Task.CompletedTask;
+}
