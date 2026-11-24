@@ -5,13 +5,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
-public class ChallengeRepository(AppDbContext db) : IChallengeRepository
+namespace FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Repositories;
+
+public sealed class ChallengeRepository(AppDbContext db) : IChallengeRepository
 {
-        public async Task<CodeIssue> IssueAsync(
+    public async Task<CodeIssue> IssueAsync(
         Guid userId, byte[] secretHash, DateTimeOffset expiresAt,
         TimeSpan cooldown, CancellationToken ct)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using IDbContextTransaction tx = await db.Database.BeginTransactionAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
         // Supersede any live row — expired ones included, because they still
@@ -53,9 +55,8 @@ public class ChallengeRepository(AppDbContext db) : IChallengeRepository
         {
             await db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException ex) when (
-            ex.InnerException is PostgresException pg
-            && pg.SqlState == PostgresErrorCodes.UniqueViolation)
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
+                                           && pg.SqlState == PostgresErrorCodes.UniqueViolation)
         {
             await tx.RollbackAsync(ct);
             return CodeIssue.Throttled;
@@ -74,29 +75,30 @@ public class ChallengeRepository(AppDbContext db) : IChallengeRepository
 
         var rows = await db.RegistrationChallenges
             .Where(c => c.UserId == userId && c.ConsumedAt == null && c.ExpiresAt > now)
-            .ExecuteUpdateAsync(s =>
-                s.SetProperty(c => c.Attempts, c => c.Attempts + 1), ct);
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.Attempts, c => c.Attempts + 1), ct);
 
         if (rows == 0)
         {
-            await tx.RollbackAsync(ct); return null;
+            await tx.RollbackAsync(ct);
+            return null;
         }
 
-        var c = await db.RegistrationChallenges.AsNoTracking()
+        var challenge = await db.RegistrationChallenges.AsNoTracking()
             .Where(x => x.UserId == userId && x.ConsumedAt == null && x.ExpiresAt > now)
             .Select(x => new { x.Id, x.SecretHash, x.Attempts })
             .SingleAsync(ct);
 
         await tx.CommitAsync(ct);
-        return new AttemptInfo(c.Id, c.SecretHash, c.Attempts);
+        return new AttemptInfo(challenge.Id, challenge.SecretHash, challenge.Attempts);
     }
 
     public async Task<bool> TryMarkConsumedAsync(Guid challengeId, CancellationToken ct)
     {
-        var registrationChallenge = await db.RegistrationChallenges
-            .FirstOrDefaultAsync(challenge => challenge.Id == challengeId && challenge.ConsumedAt == null, ct);
+        RegistrationChallenge? registrationChallenge = await db.RegistrationChallenges
+            .FirstOrDefaultAsync(
+                challenge => challenge.Id == challengeId && challenge.ConsumedAt == null, ct);
 
-        if (registrationChallenge == null)
+        if (registrationChallenge is null)
         {
             return false;
         }

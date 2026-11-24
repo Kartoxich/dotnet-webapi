@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Xunit;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 
@@ -9,38 +11,47 @@ public class CodeOptionsTests
         {
             ["Code:MaxAttempts"] = max.ToString(),
             ["Code:PerMinute"] = perMinute.ToString(),
-            ["Code:ResendPerMinute"] = "5",
-            ["Code:CodeTtlMinutes"] = "10",
-            ["Code:ResendCooldownSeconds"] = "60",
-            ["Code:CodeKey"] = "test-key-0123456789abcdef",
+            ["Code:TtlMinutes"] = "10",
+            ["Code:Key"] = "test-key-0123456789abcdef",
+            ["Resend:CooldownSeconds"] = "60",
+            ["Resend:PerMinute"] = "5",
         }).Build();
 
-    [Fact]
-    public void From_MaxAttemptsBelowPerMinute_Succeeds()
-        => Assert.Equal(5, CodeOptions.From(Config(5, 10)).MaxAttempts);
+    private static CodeOptions Bind(IConfiguration config)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddAppOptions(config);
+        return services.BuildServiceProvider()
+            .GetRequiredService<IOptions<CodeOptions>>().Value;
+    }
 
     [Fact]
-    public void From_MaxAttemptsEqualToPerMinute_ThrowsBecauseLockoutIsUnreachable()
+    public void Bind_MaxAttemptsBelowPerMinute_Succeeds()
+        => Assert.Equal(5, Bind(Config(5, 10)).MaxAttempts);
+
+    [Fact]
+    public void Bind_MaxAttemptsEqualToPerMinute_ThrowsBecauseLockoutIsUnreachable()
     {
-        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => CodeOptions.From(Config(10, 10)));
+        OptionsValidationException ex = Assert.Throws<OptionsValidationException>(() => Bind(Config(10, 10)));
         Assert.Contains("unreachable", ex.Message);
     }
 
     [Fact]
-    public void From_MaxAttemptsAbovePerMinute_Throws()
-        => Assert.Throws<InvalidOperationException>(() => CodeOptions.From(Config(11, 10)));
+    public void Bind_MaxAttemptsAbovePerMinute_Throws()
+        => Assert.Throws<OptionsValidationException>(() => Bind(Config(11, 10)));
 
     [Fact]
-    public void From_MissingCodeKey_ThrowsAndNamesTheKey()
+    public void Bind_MissingCodeKey_ThrowsAndNamesTheKey()
     {
         IConfigurationRoot config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Code:MaxAttempts"] = "5", ["Code:PerMinute"] = "10",
-            ["Code:ResendPerMinute"] = "5", ["Code:CodeTtlMinutes"] = "10",
-            ["Code:ResendCooldownSeconds"] = "60",
+            ["Code:TtlMinutes"] = "10",
+            ["Resend:CooldownSeconds"] = "60", ["Resend:PerMinute"] = "5",
         }).Build();
 
-        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => CodeOptions.From(config));
-        Assert.Contains("Code:CodeKey", ex.Message);
+        OptionsValidationException ex = Assert.Throws<OptionsValidationException>(() => Bind(config));
+        Assert.Contains("Code:Key", ex.Message);
     }
 }

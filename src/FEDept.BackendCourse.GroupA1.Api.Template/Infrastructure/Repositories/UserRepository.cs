@@ -5,7 +5,9 @@ using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-public class UserRepository(AppDbContext db) : IUserRepository
+namespace FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Repositories;
+
+public sealed class UserRepository(AppDbContext db) : IUserRepository
 {
     public async Task<Guid> CreateAsync(
         string email,
@@ -26,9 +28,8 @@ public class UserRepository(AppDbContext db) : IUserRepository
         {
             await db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException ex) when (
-            ex.InnerException is PostgresException pg &&
-            pg.SqlState == PostgresErrorCodes.UniqueViolation)
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg &&
+                                           pg.SqlState == PostgresErrorCodes.UniqueViolation)
         {
             throw new EmailAlreadyTakenException(email);
         }
@@ -36,25 +37,27 @@ public class UserRepository(AppDbContext db) : IUserRepository
         return user.Id;
     }
 
-    public async Task<Guid?> FindIdByEmailAsync(string email,  CancellationToken ct)
+    public async Task<Guid?> FindIdByEmailAsync(string email, CancellationToken ct)
     {
-        Guid userId = await db.Users.AsNoTracking()
+        Guid id = await db.Users.AsNoTracking()
             .Where(u => u.Email == email)
             .Select(u => u.Id)
             .FirstOrDefaultAsync(ct);
 
-        return userId == Guid.Empty ? null : userId;
+        return id == Guid.Empty ? null : id;
     }
 
     public async Task<bool> TryMarkActiveAsync(Guid id, CancellationToken ct)
     {
-        User? u = await db.Users.FirstOrDefaultAsync(x => x.Id == id && x.Status == UserStatus.Pending, ct);
-        if (u is null)
+        User? user = await db.Users.FirstOrDefaultAsync(
+            x => x.Id == id && x.Status == UserStatus.Pending, ct);
+
+        if (user is null)
         {
             return false;
         }
 
-        u.Status = UserStatus.Active;
+        user.Status = UserStatus.Active;
         return true;
     }
 

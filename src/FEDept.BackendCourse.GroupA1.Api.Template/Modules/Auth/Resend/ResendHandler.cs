@@ -1,27 +1,34 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
+using Microsoft.Extensions.Options;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Resend;
 
-public class ResendHandler(
+public sealed class ResendHandler(
     IUserRepository users,
     IChallengeRepository challenges,
     IEmailSender emailSender,
-    CodeOptions options,
+    IOptions<CodeOptions> codeOptions,
+    IOptions<ResendOptions> resendOptions,
     ILogger<ResendHandler> logger)
 {
+    private readonly CodeOptions _codeOptions = codeOptions.Value;
+    private readonly ResendOptions _resendOptions = resendOptions.Value;
+
     public async Task<ResendResult> ResendAsync(string? email, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(email))
+        {
             return ResendResult.InvalidRequest(new Dictionary<string, string[]>
             {
                 ["email"] = ["A value is required."],
             });
+        }
 
         var normalized = EmailNormalizer.Normalize(email);
 
-        var userId = await users.FindPendingIdByEmailAsync(normalized, ct);
+        Guid? userId = await users.FindPendingIdByEmailAsync(normalized, ct);
         if (userId is null)
         {
             // unknown address OR already active — indistinguishable by construction
@@ -29,12 +36,12 @@ public class ResendHandler(
             return ResendResult.Accepted;
         }
 
-        var (code, hash) = ConfirmationCode.New(options.CodeKeyBytes);
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(options.CodeTtlMinutes);
+        var (code, hash) = ConfirmationCode.New(_codeOptions.KeyBytes);
+        DateTimeOffset expiresAt = DateTimeOffset.UtcNow.AddMinutes(_codeOptions.TtlMinutes);
 
-        var issued = await challenges.IssueAsync(
+        CodeIssue issued = await challenges.IssueAsync(
             userId.Value, hash, expiresAt,
-            TimeSpan.FromSeconds(options.ResendCooldownSeconds), ct);
+            TimeSpan.FromSeconds(_resendOptions.CooldownSeconds), ct);
 
         if (issued == CodeIssue.Throttled)
         {

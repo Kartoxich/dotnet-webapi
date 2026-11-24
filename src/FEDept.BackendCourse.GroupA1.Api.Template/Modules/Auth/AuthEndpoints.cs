@@ -1,8 +1,8 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Resend;
-using Microsoft.AspNetCore.Identity.Data;
 
-namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
+namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
 
 public static class AuthEndpoints
 {
@@ -16,7 +16,7 @@ public static class AuthEndpoints
                 ConfirmResponses.From(await handler.ConfirmAsync(request.Email, request.Code, ct)))
             .RequireRateLimiting(AuthRateLimiting.ConfirmPolicyName);
 
-        app.MapPost("/auth/register/resend", async (ResendConfirmationEmailRequest request, ResendHandler handler, CancellationToken ct) =>
+        app.MapPost("/auth/register/resend", async (ResendRequest request, ResendHandler handler, CancellationToken ct) =>
                 ResendResponses.From(await handler.ResendAsync(request.Email, ct)))
             .RequireRateLimiting(AuthRateLimiting.ResendPolicyName);
     }

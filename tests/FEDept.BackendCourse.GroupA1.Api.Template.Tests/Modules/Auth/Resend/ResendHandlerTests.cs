@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
@@ -9,16 +10,19 @@ public class ResendHandlerTests
 {
     private static readonly Guid UserId = Guid.NewGuid();
 
-    private static readonly CodeOptions Options = new()
-    {
-        MaxAttempts = 5, PerMinute = 10, ResendPerMinute = 5,
-        CodeTtlMinutes = 10, ResendCooldownSeconds = 60,
-        CodeKey = "test-key-0123456789abcdef",
-    };
+    private static readonly IOptions<CodeOptions> Options = Microsoft.Extensions.Options.Options.Create(
+        new CodeOptions
+        {
+            MaxAttempts = 5, PerMinute = 10,
+            TtlMinutes = 10, Key = "test-key-0123456789abcdef",
+        });
+
+    private static readonly IOptions<ResendOptions> ResendOpts = Microsoft.Extensions.Options.Options.Create(
+        new ResendOptions { CooldownSeconds = 60, PerMinute = 5 });
 
     private static ResendHandler Build(
         FakeUsers u, FakeChallenges c, FakeEmailSender? mail = null) =>
-        new(u, c, mail ?? new FakeEmailSender(), Options, NullLogger<ResendHandler>.Instance);
+        new(u, c, mail ?? new FakeEmailSender(), Options, ResendOpts, NullLogger<ResendHandler>.Instance);
 
     [Fact]
     public async Task ResendAsync_Issued_MailsExactlyOnceWithSixDigits()
@@ -60,7 +64,7 @@ public class ResendHandlerTests
     public async Task ResendAsync_MailFails_StillAcceptsSoTheUserCanRetry()
     {
         ResendResult r = await new ResendHandler(new FakeUsers { IdByEmail = UserId },
-            new FakeChallenges(), new BrokenEmailSender(), Options,
+            new FakeChallenges(), new BrokenEmailSender(), Options, ResendOpts,
             NullLogger<ResendHandler>.Instance).ResendAsync("user@example.com", default);
 
         Assert.Equal(ResendOutcome.Accepted, r.Outcome);

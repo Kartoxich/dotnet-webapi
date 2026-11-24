@@ -1,7 +1,9 @@
 using System.Text;
 using Xunit;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Tests.Modules.Auth.Confirm;
@@ -18,15 +20,8 @@ public class ConfirmHandlerTests
 
     private static AttemptInfo Live(int attempts) => new(ChallengeId, CorrectHash, attempts);
 
-    private static readonly CodeOptions Options = new()
-    {
-        MaxAttempts = 5,
-        PerMinute = 10,
-        CodeTtlMinutes = 10,
-        CodeKey = CodeKey,
-        ResendCooldownSeconds = 0,
-        ResendPerMinute = 0,
-    };
+    private static readonly IOptions<CodeOptions> Options = Microsoft.Extensions.Options.Options.Create(
+        new CodeOptions { MaxAttempts = 5, PerMinute = 10, TtlMinutes = 10, Key = CodeKey });
 
     private static ConfirmHandler Build(FakeUsers u, FakeChallenges c, FakeUnitOfWork w) =>
         new(u, c, w, Options, NullLogger<ConfirmHandler>.Instance);

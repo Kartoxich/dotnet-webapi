@@ -1,17 +1,19 @@
-using System.Text;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
+using Microsoft.Extensions.Options;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 
-public class ConfirmHandler(
+public sealed class ConfirmHandler(
     IUserRepository users,
     IChallengeRepository challenges,
     IUnitOfWork unitOfWork,
-    CodeOptions codeOptions,
+    IOptions<CodeOptions> codeOptions,
     ILogger<ConfirmHandler> logger)
 {
+    private readonly CodeOptions _codeOptions = codeOptions.Value;
+
     public async Task<ConfirmResult> ConfirmAsync(string? email, string? code, CancellationToken ct)
     {
         var normalized = EmailNormalizer.Normalize(email);
@@ -22,28 +24,27 @@ public class ConfirmHandler(
             return ConfirmResult.InvalidRequest(errors);
         }
 
-        var userId = await users.FindIdByEmailAsync(normalized, ct);
+        Guid? userId = await users.FindIdByEmailAsync(normalized, ct);
         if (userId is null)
         {
             logger.LogWarning("Confirm: no user for given email");
             return ConfirmResult.InvalidCode;
         }
 
-        var attemptInfo = await challenges.TakeAttemptAsync(userId.Value, ct);
+        AttemptInfo? attemptInfo = await challenges.TakeAttemptAsync(userId.Value, ct);
         if (attemptInfo is null)
         {
             logger.LogWarning("Confirm: no live challenge");
             return ConfirmResult.InvalidCode;
         }
 
-        if (attemptInfo.Attempts > codeOptions.MaxAttempts)
+        if (attemptInfo.Attempts > _codeOptions.MaxAttempts)
         {
             logger.LogWarning("Confirm: too many attempts");
             return ConfirmResult.AttemptsExhausted;
         }
 
-        var key = codeOptions.CodeKeyBytes;
-        if (code is null || !CodeProtector.Matches(code, key, attemptInfo.SecretHash))
+        if (code is null || !CodeProtector.Matches(code, _codeOptions.KeyBytes, attemptInfo.SecretHash))
         {
             logger.LogWarning("Confirm: code mismatch");
             return ConfirmResult.InvalidCode;

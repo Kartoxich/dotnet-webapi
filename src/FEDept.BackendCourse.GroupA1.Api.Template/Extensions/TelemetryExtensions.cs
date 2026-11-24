@@ -1,5 +1,4 @@
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
+using System.Reflection;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -9,7 +8,8 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Extensions;
 
 public static class TelemetryExtensions
 {
-    private const string ServiceName = "orders-api";
+    private static readonly string ServiceName =
+        Assembly.GetEntryAssembly()?.GetName().Name ?? "dotnet-webapi";
 
     public static IServiceCollection AddAppTelemetry(this IServiceCollection services)
     {
@@ -20,13 +20,11 @@ public static class TelemetryExtensions
             .WithTracing(tracing => tracing
                 .AddAspNetCoreInstrumentation(options => options.RecordException = true)
                 .AddHttpClientInstrumentation()
-                .AddSource(OrdersTelemetry.ActivitySource.Name)
                 .AddOtlpExporter())
             .WithMetrics(metrics => metrics
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation()
-                .AddMeter(OrdersTelemetry.Meter.Name)
                 .AddOtlpExporter());
 
         return services;
@@ -44,12 +42,4 @@ public static class TelemetryExtensions
 
         return logging;
     }
-}
-
-internal static class OrdersTelemetry
-{
-    public static readonly ActivitySource ActivitySource = new("orders-api");
-    public static readonly Meter Meter = new("orders-api");
-    public static readonly Counter<long> OrdersCreated =
-        Meter.CreateCounter<long>("orders.created");
 }

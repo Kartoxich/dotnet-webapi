@@ -3,6 +3,7 @@ using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
 
@@ -14,51 +15,22 @@ public static class AuthRateLimiting
 
     public static IServiceCollection AddAuthRateLimiting(
         this IServiceCollection services,
-        CodeOptions codeOptions,
-        IConfiguration config
-    )
+        IConfiguration config)
     {
-        var registerPerMinute = config.GetValue<int?>("Registration:PerMinute")
-            ?? throw new InvalidOperationException("Missing Registration:PerMinute");
-        var confirmPerMinute = config.GetValue<int?>("Confirmation:PerMinute")
-            ?? throw new InvalidOperationException("Missing Confirmation:PerMinute");
+        var registerPerMinute = config.RequiredInt("Registration:PerMinute");
 
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
             options.AddPolicy(RegisterPolicyName, http =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    factory: _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = registerPerMinute,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0,
-                        AutoReplenishment = true
-                    }));
+                PerIp(http, registerPerMinute));
 
             options.AddPolicy(ConfirmPolicyName, http =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    factory: _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = confirmPerMinute,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0,
-                        AutoReplenishment = true
-                    }));
+                PerIp(http, http.RequestServices.GetRequiredService<IOptions<CodeOptions>>().Value.PerMinute));
 
             options.AddPolicy(ResendPolicyName, http =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    factory: _ => new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = codeOptions.ResendPerMinute,
-                        Window = TimeSpan.FromMinutes(1),
-                        QueueLimit = 0,
-                        AutoReplenishment = true,
-                    }));
+                PerIp(http, http.RequestServices.GetRequiredService<IOptions<ResendOptions>>().Value.PerMinute));
 
             options.OnRejected = async (context, ct) =>
             {
@@ -75,7 +47,9 @@ public static class AuthRateLimiting
                 response.StatusCode = StatusCodes.Status429TooManyRequests;
 
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan retry))
+                {
                     response.Headers.RetryAfter = ((int)Math.Ceiling(retry.TotalSeconds)).ToString();
+                }
 
                 await response.WriteAsJsonAsync(new ProblemDetails
                 {
@@ -86,4 +60,15 @@ public static class AuthRateLimiting
 
         return services;
     }
+
+    private static RateLimitPartition<string> PerIp(HttpContext http, int permitLimit) =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
 }
