@@ -24,15 +24,21 @@ internal sealed class FakeChallenges : IChallengeRepository
     public AttemptInfo? Attempt { get; init; }
     public CodeIssue IssueResult { get; init; } = CodeIssue.Issued;
     public bool ConsumeResult { get; init; } = true;
+    public bool ChargeResult { get; init; } = true;
     public bool MarkConsumedCalled { get; private set; }
     public int IssueCalls { get; private set; }
+    public int WrongAttemptCalls { get; private set; }
+    public int? LastMaxAttempts { get; private set; }
     public TimeSpan? LastCooldown { get; private set; }
 
     public Task<CodeIssue> IssueAsync(Guid u, byte[] h, DateTimeOffset e, TimeSpan c, CancellationToken ct)
     { IssueCalls++; LastCooldown = c; return Task.FromResult(IssueResult); }
 
-    public Task<AttemptInfo?> TakeAttemptAsync(Guid u, CancellationToken ct)
+    public Task<AttemptInfo?> FindLiveAsync(Guid u, CancellationToken ct)
         => Task.FromResult(Attempt);
+
+    public Task<bool> RegisterWrongAttemptAsync(Guid u, int maxAttempts, CancellationToken ct)
+    { WrongAttemptCalls++; LastMaxAttempts = maxAttempts; return Task.FromResult(ChargeResult); }
 
     public Task<bool> TryMarkConsumedAsync(Guid id, CancellationToken ct)
     { MarkConsumedCalled = true; return Task.FromResult(ConsumeResult); }

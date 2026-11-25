@@ -41,7 +41,7 @@ public class ConfirmHandlerTests
     }
 
     [Fact]
-    public async Task ConfirmAsync_WrongCode_ChangesNothing()
+    public async Task ConfirmAsync_WrongCode_SpendsAttemptAndActivatesNothing()
     {
         var u = new FakeUsers { IdByEmail = UserId };
         var w = new FakeUnitOfWork();
@@ -55,17 +55,19 @@ public class ConfirmHandlerTests
     }
 
     [Fact]
-    public async Task ConfirmAsync_AttemptsExactlyAtLimit_StillComparesCode()
+    public async Task ConfirmAsync_AttemptsExactlyAtLimit_IsLockedOut()
     {
-        var r = await Build(new FakeUsers { IdByEmail = UserId },
-            new FakeChallenges { Attempt = Live(5) }, new FakeUnitOfWork())
+        var c = new FakeChallenges { Attempt = Live(5) };
+
+        var r = await Build(new FakeUsers { IdByEmail = UserId }, c, new FakeUnitOfWork())
             .ConfirmAsync("user@example.com", CorrectCode, default);
 
-        Assert.Equal(ConfirmOutcome.Success, r.Outcome);
+        Assert.Equal(ConfirmOutcome.AttemptsExhausted, r.Outcome);
+        Assert.False(c.MarkConsumedCalled);
     }
 
     [Fact]
-    public async Task ConfirmAsync_AttemptsOverLimit_DoesNotCompareCode()
+    public async Task ConfirmAsync_WrongCodeAfterLockoutReached_DoesNotChargeAgain()
     {
         var c = new FakeChallenges { Attempt = Live(6) };
 
@@ -74,6 +76,55 @@ public class ConfirmHandlerTests
 
         Assert.Equal(ConfirmOutcome.AttemptsExhausted, r.Outcome);
         Assert.False(c.MarkConsumedCalled);
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_WrongCode_SpendsExactlyOneAttempt()
+    {
+        var c = new FakeChallenges { Attempt = Live(1) };
+
+        var r = await Build(new FakeUsers { IdByEmail = UserId }, c, new FakeUnitOfWork())
+            .ConfirmAsync("user@example.com", "222222", default);
+
+        Assert.Equal(ConfirmOutcome.InvalidCode, r.Outcome);
+        Assert.Equal(1, c.WrongAttemptCalls);
+        Assert.Equal(5, c.LastMaxAttempts);
+        Assert.False(c.MarkConsumedCalled);
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_FifthWrongInput_ConsumesAndAnswers429()
+    {
+        var c = new FakeChallenges { Attempt = Live(4) };
+
+        var r = await Build(new FakeUsers { IdByEmail = UserId }, c, new FakeUnitOfWork())
+            .ConfirmAsync("user@example.com", "222222", default);
+
+        Assert.Equal(ConfirmOutcome.AttemptsExhausted, r.Outcome);
+        Assert.Equal(1, c.WrongAttemptCalls);
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_CorrectCode_SpendsNoAttempt()
+    {
+        var c = new FakeChallenges { Attempt = Live(1) };
+
+        var r = await Build(new FakeUsers { IdByEmail = UserId }, c, new FakeUnitOfWork())
+            .ConfirmAsync("user@example.com", CorrectCode, default);
+
+        Assert.Equal(ConfirmOutcome.Success, r.Outcome);
+        Assert.Equal(0, c.WrongAttemptCalls);
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_ChargeLost_ReturnsInvalidCode()
+    {
+        var c = new FakeChallenges { Attempt = Live(1), ChargeResult = false };
+
+        var r = await Build(new FakeUsers { IdByEmail = UserId }, c, new FakeUnitOfWork())
+            .ConfirmAsync("user@example.com", "222222", default);
+
+        Assert.Equal(ConfirmOutcome.InvalidCode, r.Outcome);
     }
 
     [Fact]
@@ -97,6 +148,19 @@ public class ConfirmHandlerTests
             .ConfirmAsync("ghost@example.com", "111111", default);
 
         Assert.Equal(ConfirmOutcome.InvalidCode, r.Outcome);
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_NoLiveChallenge_ReturnsInvalidCode_AndSpendsNothing()
+    {
+        var c = new FakeChallenges { Attempt = null };
+
+        var r = await Build(new FakeUsers { IdByEmail = UserId }, c, new FakeUnitOfWork())
+            .ConfirmAsync("user@example.com", CorrectCode, default);
+
+        Assert.Equal(ConfirmOutcome.InvalidCode, r.Outcome);
+        Assert.Equal(0, c.WrongAttemptCalls);
+        Assert.False(c.MarkConsumedCalled);
     }
 
     [Fact]

@@ -31,26 +31,39 @@ public sealed class ConfirmHandler(
             return ConfirmResult.InvalidCode;
         }
 
-        AttemptInfo? attemptInfo = await challenges.TakeAttemptAsync(userId.Value, ct);
-        if (attemptInfo is null)
+        AttemptInfo? attempt = await challenges.FindLiveAsync(userId.Value, ct);
+        if (attempt is null)
         {
             logger.LogWarning("Confirm: no live challenge");
             return ConfirmResult.InvalidCode;
         }
 
-        if (attemptInfo.Attempts > _codeOptions.MaxAttempts)
+        if (attempt.Attempts >= _codeOptions.MaxAttempts)
         {
             logger.LogWarning("Confirm: too many attempts");
             return ConfirmResult.AttemptsExhausted;
         }
 
-        if (code is null || !CodeProtector.Matches(code, _codeOptions.KeyBytes, attemptInfo.SecretHash))
+        if (!CodeProtector.Matches(code!, _codeOptions.KeyBytes, attempt.SecretHash))
         {
+            if (!await challenges.RegisterWrongAttemptAsync(
+                    userId.Value, _codeOptions.MaxAttempts, ct))
+            {
+                logger.LogWarning("Confirm: attempt charge lost");
+                return ConfirmResult.InvalidCode;
+            }
+
+            if (attempt.Attempts + 1 >= _codeOptions.MaxAttempts)
+            {
+                logger.LogWarning("Confirm: attempt limit reached, challenge consumed");
+                return ConfirmResult.AttemptsExhausted;
+            }
+
             logger.LogWarning("Confirm: code mismatch");
             return ConfirmResult.InvalidCode;
         }
 
-        if (!await challenges.TryMarkConsumedAsync(attemptInfo.Id, ct))
+        if (!await challenges.TryMarkConsumedAsync(attempt.Id, ct))
         {
             logger.LogWarning("Confirm: consume lost");
             return ConfirmResult.InvalidCode;

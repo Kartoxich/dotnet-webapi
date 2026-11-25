@@ -66,30 +66,29 @@ public sealed class ChallengeRepository(AppDbContext db) : IChallengeRepository
         return CodeIssue.Issued;
     }
 
-    public async Task<AttemptInfo?> TakeAttemptAsync(
-        Guid userId, CancellationToken ct)
+    public async Task<AttemptInfo?> FindLiveAsync(Guid userId, CancellationToken ct)
     {
-        await using IDbContextTransaction tx = await db.Database.BeginTransactionAsync(ct);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
+        return await db.RegistrationChallenges.AsNoTracking()
+            .Where(c => c.UserId == userId && c.ConsumedAt == null && c.ExpiresAt > now)
+            .Select(c => new AttemptInfo(c.Id, c.SecretHash, c.Attempts))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<bool> RegisterWrongAttemptAsync(
+        Guid userId, int maxAttempts, CancellationToken ct)
+    {
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
         var rows = await db.RegistrationChallenges
             .Where(c => c.UserId == userId && c.ConsumedAt == null && c.ExpiresAt > now)
-            .ExecuteUpdateAsync(s => s.SetProperty(c => c.Attempts, c => c.Attempts + 1), ct);
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.Attempts, c => c.Attempts + 1)
+                .SetProperty(c => c.ConsumedAt,
+                    c => c.Attempts + 1 >= maxAttempts ? now : c.ConsumedAt), ct);
 
-        if (rows == 0)
-        {
-            await tx.RollbackAsync(ct);
-            return null;
-        }
-
-        var challenge = await db.RegistrationChallenges.AsNoTracking()
-            .Where(x => x.UserId == userId && x.ConsumedAt == null && x.ExpiresAt > now)
-            .Select(x => new { x.Id, x.SecretHash, x.Attempts })
-            .SingleAsync(ct);
-
-        await tx.CommitAsync(ct);
-        return new AttemptInfo(challenge.Id, challenge.SecretHash, challenge.Attempts);
+        return rows > 0;
     }
 
     public async Task<bool> TryMarkConsumedAsync(Guid challengeId, CancellationToken ct)

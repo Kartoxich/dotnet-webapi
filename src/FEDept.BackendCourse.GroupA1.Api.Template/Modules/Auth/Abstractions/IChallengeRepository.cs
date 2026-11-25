@@ -10,6 +10,10 @@ public interface IChallengeRepository
         DateTimeOffset expiresAt,
         TimeSpan cooldown,
         CancellationToken ct);
-    Task<AttemptInfo?> TakeAttemptAsync(Guid userId, CancellationToken ct);
+
+    Task<AttemptInfo?> FindLiveAsync(Guid userId, CancellationToken ct);
+
+    Task<bool> RegisterWrongAttemptAsync(Guid userId, int maxAttempts, CancellationToken ct);
+
     Task<bool> TryMarkConsumedAsync(Guid challengeId, CancellationToken ct);
 }
