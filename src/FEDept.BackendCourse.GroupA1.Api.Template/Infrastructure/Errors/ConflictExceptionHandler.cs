@@ -1,5 +1,4 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,7 +14,7 @@ public sealed class ConflictExceptionHandler : IExceptionHandler
         await http.Response.WriteAsJsonAsync(new ProblemDetails
         {
             Title = "Email is already registered",
-            Type = RegisterErrorTypes.EmailTaken,
+            Type = AuthErrorTypes.EmailTaken,
             Status = StatusCodes.Status409Conflict,
         }, ct);
         return true;

@@ -1,7 +1,6 @@
 using System.Threading.RateLimiting;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -37,10 +36,10 @@ public static class AuthRateLimiting
                 var (type, title) = context.HttpContext.Request.Path.Value switch
                 {
                     string p when p.StartsWith("/auth/register/confirm") =>
-                        (ConfirmErrorTypes.RateLimit, "Too many confirmation attempts"),
+                        (AuthErrorTypes.ConfirmRateLimit, "Too many confirmation attempts"),
                     string p when p.StartsWith("/auth/register/resend") =>
-                        (ConfirmErrorTypes.RateLimit, "Too many resend attempts"),
-                    _ => (RegisterErrorTypes.RateLimit, "Too many registration attempts")
+                        (AuthErrorTypes.ResendRateLimit, "Too many resend attempts"),
+                    _ => (AuthErrorTypes.RegisterRateLimit, "Too many registration attempts")
                 };
 
                 var response = context.HttpContext.Response;

@@ -42,6 +42,6 @@ public class RegisterConflictTests(WebApplicationFactory<Program> factory)
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
 
         var problem = await second.Content.ReadFromJsonAsync<ProblemDetails>();
-        Assert.Equal("urn:fedept:register:email-taken", problem!.Type);
+        Assert.Equal(AuthErrorTypes.EmailTaken, problem!.Type);
     }
 }
