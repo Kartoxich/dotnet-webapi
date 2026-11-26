@@ -1,5 +1,6 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
 using Microsoft.Extensions.Options;
 
@@ -37,9 +38,13 @@ public sealed class RegisterHandler(
 
         await challenges.IssueAsync(userId, hash, expiresAt, TimeSpan.Zero, ct);
 
+        var message = new ConfirmationMessage(
+            normalized, ChallengeMethod.Otp, code, userId, expiresAt,
+            TimeSpan.FromMinutes(_codeOptions.TtlMinutes));
+
         try
         {
-            await emailSender.SendConfirmationAsync(normalized, code, ct);
+            await emailSender.SendConfirmationAsync(message, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -47,6 +52,6 @@ public sealed class RegisterHandler(
         }
 
         logger.LogInformation("User registered: {UserId}", userId);
-        return RegisterResult.Success(userId, normalized, UserStatus.Pending);
+        return RegisterResult.Pending(userId, normalized, message.Ticket);
     }
 }

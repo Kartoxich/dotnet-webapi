@@ -1,5 +1,6 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
 using Microsoft.Extensions.Options;
 
@@ -31,7 +32,6 @@ public sealed class ResendHandler(
         Guid? userId = await users.FindPendingIdByEmailAsync(normalized, ct);
         if (userId is null)
         {
-            // unknown address OR already active — indistinguishable by construction
             logger.LogInformation("Resend: no pending account for the given email");
             return ResendResult.Accepted;
         }
@@ -49,9 +49,13 @@ public sealed class ResendHandler(
             return ResendResult.Accepted;
         }
 
+        var message = new ConfirmationMessage(
+            normalized, ChallengeMethod.Otp, code, userId.Value, expiresAt,
+            TimeSpan.FromMinutes(_codeOptions.TtlMinutes));
+
         try
         {
-            await emailSender.SendConfirmationAsync(normalized, code, ct);
+            await emailSender.SendConfirmationAsync(message, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

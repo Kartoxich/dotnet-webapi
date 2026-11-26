@@ -16,8 +16,6 @@ public sealed class ChallengeRepository(AppDbContext db) : IChallengeRepository
         await using IDbContextTransaction tx = await db.Database.BeginTransactionAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
-        // Supersede any live row — expired ones included, because they still
-        // occupy the partial unique index slot (consumed_at IS NULL).
         var rows = await db.RegistrationChallenges
             .Where(c => c.UserId == userId && c.ConsumedAt == null && c.LastSentAt <= now - cooldown)
             .ExecuteUpdateAsync(s => s

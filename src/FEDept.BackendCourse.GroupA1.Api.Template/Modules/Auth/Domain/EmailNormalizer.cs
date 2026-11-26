@@ -14,7 +14,7 @@ public static class EmailNormalizer
         }
 
         var cleanEmail = email.Trim().ToLowerInvariant();
-        var parts = cleanEmail.Split('@', StringSplitOptions.RemoveEmptyEntries);// Test case with two @@
+        var parts = cleanEmail.Split('@', StringSplitOptions.RemoveEmptyEntries);
 
         if (parts.Length != 2)
         {

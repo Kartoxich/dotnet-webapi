@@ -30,18 +30,21 @@ public class RegisterConflictTests(WebApplicationFactory<Program> factory)
     public async Task Register_SameEmailTwice_Returns409WithUrnType()
     {
         var email = $"conflict-{Guid.NewGuid():N}@example.com";
-        var body = new StringContent(
-            JsonSerializer.Serialize(new { email, password = "secret12" }),
-            Encoding.UTF8, "application/json"
-        );
 
-        var first = await _client.PostAsync("/auth/register", body);
-        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        var first = await _client.PostAsync("/auth/register", Body(email));
+        if (first.StatusCode != HttpStatusCode.Accepted)
+        {
+            Assert.Fail($"register: {(int)first.StatusCode} {await first.Content.ReadAsStringAsync()}");
+        }
 
-        var second = await _client.PostAsync("/auth/register", body);
+        var second = await _client.PostAsync("/auth/register", Body(email));
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
 
         var problem = await second.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.Equal(AuthErrorTypes.EmailTaken, problem!.Type);
     }
+
+    private static StringContent Body(string email) => new(
+        JsonSerializer.Serialize(new { email, password = "secret12" }),
+        Encoding.UTF8, "application/json");
 }

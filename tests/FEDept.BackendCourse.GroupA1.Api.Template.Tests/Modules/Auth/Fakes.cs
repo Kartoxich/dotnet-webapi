@@ -6,17 +6,25 @@ internal sealed class FakeUsers : IUserRepository
 {
     public Guid? IdByEmail { get; init; }
     public bool Pending { get; init; } = true;
+    public Guid CreatedId { get; } = Guid.NewGuid();
+    public string? CreatedEmail { get; private set; }
+    public string? CreatedHash { get; private set; }
     public bool FindCalled { get; private set; }
     public Guid? ActivatedId { get; private set; }
 
     public Task<Guid> CreateAsync(string e, string p, CancellationToken ct)
-        => throw new NotSupportedException("confirm/resend must never create users");
+    { CreatedEmail = e; CreatedHash = p; return Task.FromResult(CreatedId); }
     public Task<Guid?> FindIdByEmailAsync(string e, CancellationToken ct)
     { FindCalled = true; return Task.FromResult(IdByEmail); }
     public Task<Guid?> FindPendingIdByEmailAsync(string e, CancellationToken ct)
     { FindCalled = true; return Task.FromResult(Pending ? IdByEmail : null); }
     public Task<bool> TryMarkActiveAsync(Guid id, CancellationToken ct)
     { ActivatedId = id; return Task.FromResult(true); }
+}
+
+internal sealed class FakePasswordHasher : IPasswordHasher
+{
+    public string Hash(string password) => $"hashed:{password}";
 }
 
 internal sealed class FakeChallenges : IChallengeRepository
@@ -53,19 +61,19 @@ internal sealed class FakeUnitOfWork : IUnitOfWork
 
 internal sealed class FakeEmailSender : IEmailSender
 {
-    public List<(string To, string Code)> Sent { get; } = new();
-    public Task SendConfirmationAsync(string to, string code, CancellationToken ct)
-    { Sent.Add((to, code)); return Task.CompletedTask; }
+    public List<ConfirmationMessage> Sent { get; } = new();
+    public Task SendConfirmationAsync(ConfirmationMessage message, CancellationToken ct)
+    { Sent.Add(message); return Task.CompletedTask; }
 }
 
 internal sealed class BrokenEmailSender : IEmailSender
 {
-    public Task SendConfirmationAsync(string to, string code, CancellationToken ct)
+    public Task SendConfirmationAsync(ConfirmationMessage message, CancellationToken ct)
         => throw new InvalidOperationException("mailpit is down");
 }
 
 internal sealed class NoopEmailSender : IEmailSender
 {
-    public Task SendConfirmationAsync(string to, string code, CancellationToken ct)
+    public Task SendConfirmationAsync(ConfirmationMessage message, CancellationToken ct)
         => Task.CompletedTask;
 }

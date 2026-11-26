@@ -7,10 +7,6 @@ public static class OptionsRegistration
     private const string SmtpSection = "Smtp";
     private const string SecuritySection = "Security";
 
-    /// <summary>
-    /// Binds every strongly typed options object exactly once and fails the
-    /// application start — not the first request — when configuration is wrong.
-    /// </summary>
     public static IServiceCollection AddAppOptions(
         this IServiceCollection services,
         IConfiguration config)
@@ -37,6 +33,8 @@ public static class OptionsRegistration
             .Validate(o => !string.IsNullOrWhiteSpace(o.Host), $"{SmtpSection}:Host is required.")
             .Validate(o => o.Port is > 0 and <= 65535, $"{SmtpSection}:Port must be a valid port.")
             .Validate(o => !string.IsNullOrWhiteSpace(o.From), $"{SmtpSection}:From is required.")
+            .Validate(o => Uri.TryCreate(o.LinkBaseUrl, UriKind.Absolute, out _),
+                $"{SmtpSection}:LinkBaseUrl must be an absolute URL.")
             .Validate(o => Enum.IsDefined(o.Security),
                 $"{SmtpSection}:Security must be one of: {string.Join(", ", Enum.GetNames<MailKit.Security.SecureSocketOptions>())}.")
             .ValidateOnStart();
@@ -50,7 +48,6 @@ public static class OptionsRegistration
         return services;
     }
 
-    /// <summary>Reads a required scalar option, failing fast when it is missing.</summary>
     public static int RequiredInt(this IConfiguration config, string key) =>
         config.GetValue<int?>(key) ?? throw new InvalidOperationException($"Missing {key}");
 }

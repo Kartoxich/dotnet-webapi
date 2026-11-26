@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Xunit;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Resend;
 using FEDept.BackendCourse.GroupA1.Api.Template.Tests.Modules.Auth;
 
@@ -33,8 +34,11 @@ public class ResendHandlerTests
 
         Assert.Equal(ResendOutcome.Accepted, r.Outcome);
         Assert.Single(mail.Sent);
-        Assert.Equal("user@example.com", mail.Sent[0].To);   // normalized before sending
-        Assert.Matches("^[0-9]{6}$", mail.Sent[0].Code);
+        Assert.Equal("user@example.com", mail.Sent[0].Email);
+        Assert.Matches("^[0-9]{6}$", mail.Sent[0].Secret);
+        Assert.Equal(ChallengeMethod.Otp, mail.Sent[0].Method);
+        Assert.Equal(UserId, mail.Sent[0].AttemptId);
+        Assert.True(mail.Sent[0].ExpiresAt > DateTimeOffset.UtcNow);
     }
 
     [Fact]
