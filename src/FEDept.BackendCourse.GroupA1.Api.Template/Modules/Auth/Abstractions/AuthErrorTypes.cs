@@ -6,6 +6,7 @@ public static class AuthErrorTypes
 
     public const string EmailTaken = Prefix + "email-taken";
     public const string RegisterRateLimit = Prefix + "register-rate-limit";
+    public const string MailNotSent = Prefix + "mail-not-sent";
 
     public const string CodeInvalid = Prefix + "code-invalid";
     public const string AttemptsExhausted = Prefix + "attempts-exhausted";

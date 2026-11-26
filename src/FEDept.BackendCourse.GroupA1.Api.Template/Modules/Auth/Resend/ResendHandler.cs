@@ -10,6 +10,7 @@ public sealed class ResendHandler(
     IUserRepository users,
     IChallengeRepository challenges,
     IEmailSender emailSender,
+    IUnitOfWork unitOfWork,
     IOptions<CodeOptions> codeOptions,
     IOptions<ResendOptions> resendOptions,
     ILogger<ResendHandler> logger)
@@ -38,6 +39,7 @@ public sealed class ResendHandler(
 
         var (code, hash) = ConfirmationCode.New(_codeOptions.KeyBytes);
         DateTimeOffset expiresAt = DateTimeOffset.UtcNow.AddMinutes(_codeOptions.TtlMinutes);
+        var ttl = TimeSpan.FromMinutes(_codeOptions.TtlMinutes);
 
         CodeIssue issued = await challenges.IssueAsync(
             userId.Value, hash, expiresAt,
@@ -50,8 +52,7 @@ public sealed class ResendHandler(
         }
 
         var message = new ConfirmationMessage(
-            normalized, ChallengeMethod.Otp, code, userId.Value, expiresAt,
-            TimeSpan.FromMinutes(_codeOptions.TtlMinutes));
+            normalized, ChallengeMethod.Otp, code, userId.Value, expiresAt, ttl);
 
         try
         {
@@ -60,7 +61,10 @@ public sealed class ResendHandler(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "Resend mail failed for {UserId}", userId);
+            return ResendResult.MailFailed;
         }
+
+        await unitOfWork.SaveChangesAsync(ct);
 
         return ResendResult.Accepted;
     }

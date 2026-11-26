@@ -4,14 +4,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Tests.Modules.Auth.Register;
 
 public class RegisterHandlerTests
 {
-    private static readonly Guid UserId = Guid.NewGuid();
-
     private static readonly IOptions<CodeOptions> Options = Microsoft.Extensions.Options.Options.Create(
         new CodeOptions
         {
@@ -20,9 +19,9 @@ public class RegisterHandlerTests
         });
 
     private static RegisterHandler Build(
-        FakeUsers u, FakeEmailSender mail, FakeChallenges? c = null) =>
+        FakeUsers u, FakeEmailSender mail, FakeChallenges? c = null, FakeUnitOfWork? w = null) =>
         new(u, c ?? new FakeChallenges(), new FakePasswordHasher(), mail,
-            Options, NullLogger<RegisterHandler>.Instance);
+            w ?? new FakeUnitOfWork(), Options, NullLogger<RegisterHandler>.Instance);
 
     [Fact]
     public async Task RegisterAsync_MailsOneMessageCarryingEverythingTheSenderNeeds()
@@ -64,16 +63,32 @@ public class RegisterHandlerTests
     }
 
     [Fact]
-    public async Task RegisterAsync_MailFails_StillRegistersAndKeepsTheTicket()
+    public async Task RegisterAsync_MailFails_ReturnsMailFailedAndKeepsTheUserPending()
     {
         var u = new FakeUsers();
+        var w = new FakeUnitOfWork();
 
         RegisterResult r = await new RegisterHandler(
                 u, new FakeChallenges(), new FakePasswordHasher(), new BrokenEmailSender(),
-                Options, NullLogger<RegisterHandler>.Instance)
+                w, Options, NullLogger<RegisterHandler>.Instance)
+            .RegisterAsync("user@example.com", "secret12", default);
+
+        Assert.Equal(RegisterOutcome.MailFailed, r.Outcome);
+        Assert.Equal(UserStatus.Pending, r.Status);
+        Assert.Null(r.Ticket);
+        Assert.NotEqual(Guid.Empty, u.CreatedId);
+        Assert.Equal(0, w.SaveCount);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_AfterMailSucceeded_SavesOnce()
+    {
+        var w = new FakeUnitOfWork();
+
+        RegisterResult r = await Build(new FakeUsers(), new FakeEmailSender(), w: w)
             .RegisterAsync("user@example.com", "secret12", default);
 
         Assert.Equal(RegisterOutcome.Success, r.Outcome);
-        Assert.NotNull(r.Ticket);
+        Assert.Equal(1, w.SaveCount);
     }
 }

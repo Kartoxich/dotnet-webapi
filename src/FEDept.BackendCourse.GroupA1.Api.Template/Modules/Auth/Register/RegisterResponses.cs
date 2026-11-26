@@ -15,7 +15,7 @@ public static class RegisterResponses
     public static IResult From(RegisterResult r) => r.Outcome switch
     {
         RegisterOutcome.Success when r.Ticket is { } ticket => Accepted(ticket),
-
+        RegisterOutcome.MailFailed => MailFailure.Response(),
         _ => TypedResults.ValidationProblem(r.Errors!),
     };
 

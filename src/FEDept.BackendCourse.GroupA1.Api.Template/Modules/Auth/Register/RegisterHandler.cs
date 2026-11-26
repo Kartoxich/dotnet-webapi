@@ -11,6 +11,7 @@ public sealed class RegisterHandler(
     IChallengeRepository challenges,
     IPasswordHasher hasher,
     IEmailSender emailSender,
+    IUnitOfWork unitOfWork,
     IOptions<CodeOptions> codeOptions,
     ILogger<RegisterHandler> logger)
 {
@@ -35,12 +36,12 @@ public sealed class RegisterHandler(
 
         var (code, hash) = ConfirmationCode.New(_codeOptions.KeyBytes);
         DateTimeOffset expiresAt = DateTimeOffset.UtcNow.AddMinutes(_codeOptions.TtlMinutes);
+        var ttl = TimeSpan.FromMinutes(_codeOptions.TtlMinutes);
 
         await challenges.IssueAsync(userId, hash, expiresAt, TimeSpan.Zero, ct);
 
         var message = new ConfirmationMessage(
-            normalized, ChallengeMethod.Otp, code, userId, expiresAt,
-            TimeSpan.FromMinutes(_codeOptions.TtlMinutes));
+            normalized, ChallengeMethod.Otp, code, userId, expiresAt, ttl);
 
         try
         {
@@ -49,7 +50,10 @@ public sealed class RegisterHandler(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "Confirmation mail failed for {UserId}", userId);
+            return RegisterResult.MailFailed(userId, normalized);
         }
+
+        await unitOfWork.SaveChangesAsync(ct);
 
         logger.LogInformation("User registered: {UserId}", userId);
         return RegisterResult.Pending(userId, normalized, message.Ticket);

@@ -22,8 +22,9 @@ public class ResendHandlerTests
         new ResendOptions { CooldownSeconds = 60, PerMinute = 5 });
 
     private static ResendHandler Build(
-        FakeUsers u, FakeChallenges c, FakeEmailSender? mail = null) =>
-        new(u, c, mail ?? new FakeEmailSender(), Options, ResendOpts, NullLogger<ResendHandler>.Instance);
+        FakeUsers u, FakeChallenges c, FakeEmailSender? mail = null, FakeUnitOfWork? w = null) =>
+        new(u, c, mail ?? new FakeEmailSender(), w ?? new FakeUnitOfWork(),
+            Options, ResendOpts, NullLogger<ResendHandler>.Instance);
 
     [Fact]
     public async Task ResendAsync_Issued_MailsExactlyOnceWithSixDigits()
@@ -65,13 +66,38 @@ public class ResendHandlerTests
     }
 
     [Fact]
-    public async Task ResendAsync_MailFails_StillAcceptsSoTheUserCanRetry()
+    public async Task ResendAsync_MailFails_ReturnsMailFailed()
     {
         ResendResult r = await new ResendHandler(new FakeUsers { IdByEmail = UserId },
-            new FakeChallenges(), new BrokenEmailSender(), Options, ResendOpts,
-            NullLogger<ResendHandler>.Instance).ResendAsync("user@example.com", default);
+            new FakeChallenges(), new BrokenEmailSender(), new FakeUnitOfWork(),
+            Options, ResendOpts, NullLogger<ResendHandler>.Instance)
+            .ResendAsync("user@example.com", default);
+
+        Assert.Equal(ResendOutcome.MailFailed, r.Outcome);
+    }
+
+    [Fact]
+    public async Task ResendAsync_MailSucceeded_SavesOnce()
+    {
+        var w = new FakeUnitOfWork();
+
+        ResendResult r = await Build(new FakeUsers { IdByEmail = UserId }, new FakeChallenges(), w: w)
+            .ResendAsync("user@example.com", default);
 
         Assert.Equal(ResendOutcome.Accepted, r.Outcome);
+        Assert.Equal(1, w.SaveCount);
+    }
+
+    [Fact]
+    public async Task ResendAsync_Throttled_SavesNothing()
+    {
+        var w = new FakeUnitOfWork();
+
+        await Build(new FakeUsers { IdByEmail = UserId },
+            new FakeChallenges { IssueResult = CodeIssue.Throttled }, w: w)
+            .ResendAsync("user@example.com", default);
+
+        Assert.Equal(0, w.SaveCount);
     }
 
     [Fact]
