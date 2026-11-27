@@ -1,19 +1,17 @@
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register.Email;
-
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
 
-public class ConfirmValidator
+public static class ConfirmValidator
 {
-    public static IDictionary<string, string[]>? Validate(string? email, string? code)
+    public static IDictionary<string, string[]>? Validate(Guid? attemptId, string? code)
     {
         var errors = new Dictionary<string, string[]>();
 
-        var emailError = EmailValidator.Validate(email);
+        var attemptIdError = AttemptIdValidator.Validate(attemptId);
         var codeError = CodeValidator.Validate(code);
 
-        if (emailError is not null)
+        if (attemptIdError is not null)
         {
-            errors["email"] = [emailError];
+            errors["attemptId"] = [attemptIdError];
         }
 
         if (codeError is not null)

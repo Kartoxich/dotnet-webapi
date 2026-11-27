@@ -1,6 +1,5 @@
 using FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration;
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Domain;
 using Microsoft.Extensions.Options;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
@@ -14,27 +13,18 @@ public sealed class ConfirmHandler(
 {
     private readonly CodeOptions _codeOptions = codeOptions.Value;
 
-    public async Task<ConfirmResult> ConfirmAsync(string? email, string? code, CancellationToken ct)
+    public async Task<ConfirmResult> ConfirmAsync(Guid? attemptId, string? code, CancellationToken ct)
     {
-        var normalized = EmailNormalizer.Normalize(email);
-
-        if (ConfirmValidator.Validate(normalized, code) is { } errors)
+        if (ConfirmValidator.Validate(attemptId, code) is { } errors)
         {
             logger.LogWarning("Confirm rejected: {Fields}", string.Join(",", errors.Keys));
             return ConfirmResult.InvalidRequest(errors);
         }
 
-        Guid? userId = await users.FindIdByEmailAsync(normalized, ct);
-        if (userId is null)
-        {
-            logger.LogWarning("Confirm: no user for given email");
-            return ConfirmResult.InvalidCode;
-        }
-
-        AttemptInfo? attempt = await challenges.FindLiveAsync(userId.Value, ct);
+        AttemptInfo? attempt = await challenges.FindLiveAsync(attemptId!.Value, ct);
         if (attempt is null)
         {
-            logger.LogWarning("Confirm: no live challenge");
+            logger.LogWarning("Confirm: no live attempt for the given id");
             return ConfirmResult.InvalidCode;
         }
 
@@ -47,7 +37,7 @@ public sealed class ConfirmHandler(
         if (!CodeProtector.Matches(code!, _codeOptions.KeyBytes, attempt.SecretHash))
         {
             if (!await challenges.RegisterWrongAttemptAsync(
-                    userId.Value, _codeOptions.MaxAttempts, ct))
+                    attempt.Id, _codeOptions.MaxAttempts, ct))
             {
                 logger.LogWarning("Confirm: attempt charge lost");
                 return ConfirmResult.InvalidCode;
@@ -69,7 +59,7 @@ public sealed class ConfirmHandler(
             return ConfirmResult.InvalidCode;
         }
 
-        if (!await users.TryMarkActiveAsync(userId.Value, ct))
+        if (!await users.TryMarkActiveAsync(attempt.UserId, ct))
         {
             logger.LogWarning("Confirm: activation lost");
             return ConfirmResult.InvalidCode;

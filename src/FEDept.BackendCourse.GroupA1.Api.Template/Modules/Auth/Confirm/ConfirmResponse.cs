@@ -8,7 +8,11 @@ public static class ConfirmResponses
     {
         ConfirmOutcome.Success => TypedResults.Ok(new ConfirmResponse("active")),
         ConfirmOutcome.AttemptsExhausted => ConfirmError.AttemptsExhausted(),
-        ConfirmOutcome.InvalidRequest => TypedResults.ValidationProblem(r.Errors!),
-        _ => ConfirmError.InvalidCode(),
+        ConfirmOutcome.InvalidCode => ConfirmError.InvalidCode(),
+
+        ConfirmOutcome.InvalidRequest when r.Errors is { } errors
+            => TypedResults.ValidationProblem(errors),
+
+        _ => throw new ArgumentOutOfRangeException(nameof(r), r.Outcome, "Unmapped confirm outcome"),
     };
 }

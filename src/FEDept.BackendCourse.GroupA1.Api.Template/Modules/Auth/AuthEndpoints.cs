@@ -13,7 +13,7 @@ public static class AuthEndpoints
             .RequireRateLimiting(AuthRateLimiting.RegisterPolicyName);
 
         app.MapPost("/auth/register/confirm", async (ConfirmRequest request, ConfirmHandler handler, CancellationToken ct) =>
-                ConfirmResponses.From(await handler.ConfirmAsync(request.Email, request.Code, ct)))
+                ConfirmResponses.From(await handler.ConfirmAsync(request.AttemptId, request.Code, ct)))
             .RequireRateLimiting(AuthRateLimiting.ConfirmPolicyName);
 
         app.MapPost("/auth/register/resend", async (ResendRequest request, ResendHandler handler, CancellationToken ct) =>

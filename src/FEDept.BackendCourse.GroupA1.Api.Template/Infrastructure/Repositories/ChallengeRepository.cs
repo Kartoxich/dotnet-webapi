@@ -64,23 +64,23 @@ public sealed class ChallengeRepository(AppDbContext db) : IChallengeRepository
         return CodeIssue.Issued;
     }
 
-    public async Task<AttemptInfo?> FindLiveAsync(Guid userId, CancellationToken ct)
+    public async Task<AttemptInfo?> FindLiveAsync(Guid attemptId, CancellationToken ct)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
         return await db.RegistrationChallenges.AsNoTracking()
-            .Where(c => c.UserId == userId && c.ConsumedAt == null && c.ExpiresAt > now)
-            .Select(c => new AttemptInfo(c.Id, c.SecretHash, c.Attempts))
+            .Where(c => c.Id == attemptId && c.ConsumedAt == null && c.ExpiresAt > now)
+            .Select(c => new AttemptInfo(c.Id, c.UserId, c.SecretHash, c.Attempts))
             .FirstOrDefaultAsync(ct);
     }
 
     public async Task<bool> RegisterWrongAttemptAsync(
-        Guid userId, int maxAttempts, CancellationToken ct)
+        Guid attemptId, int maxAttempts, CancellationToken ct)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
         var rows = await db.RegistrationChallenges
-            .Where(c => c.UserId == userId && c.ConsumedAt == null && c.ExpiresAt > now)
+            .Where(c => c.Id == attemptId && c.ConsumedAt == null && c.ExpiresAt > now)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.Attempts, c => c.Attempts + 1)
                 .SetProperty(c => c.ConsumedAt,
@@ -89,18 +89,14 @@ public sealed class ChallengeRepository(AppDbContext db) : IChallengeRepository
         return rows > 0;
     }
 
-    public async Task<bool> TryMarkConsumedAsync(Guid challengeId, CancellationToken ct)
+    public async Task<bool> TryMarkConsumedAsync(Guid attemptId, CancellationToken ct)
     {
-        RegistrationChallenge? registrationChallenge = await db.RegistrationChallenges
-            .FirstOrDefaultAsync(
-                challenge => challenge.Id == challengeId && challenge.ConsumedAt == null, ct);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
-        if (registrationChallenge is null)
-        {
-            return false;
-        }
+        var rows = await db.RegistrationChallenges
+            .Where(c => c.Id == attemptId && c.ConsumedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.ConsumedAt, now), ct);
 
-        registrationChallenge.ConsumedAt = DateTimeOffset.UtcNow;
-        return true;
+        return rows > 0;
     }
 }

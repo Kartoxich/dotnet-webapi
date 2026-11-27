@@ -41,18 +41,24 @@ internal sealed class FakeChallenges : IChallengeRepository
     public int WrongAttemptCalls { get; private set; }
     public int? LastMaxAttempts { get; private set; }
     public TimeSpan? LastCooldown { get; private set; }
+    public Guid? LastAttemptId { get; private set; }
 
     public Task<CodeIssue> IssueAsync(Guid u, byte[] h, DateTimeOffset e, TimeSpan c, CancellationToken ct)
     { IssueCalls++; LastCooldown = c; return Task.FromResult(IssueResult); }
 
-    public Task<AttemptInfo?> FindLiveAsync(Guid u, CancellationToken ct)
-        => Task.FromResult(Attempt);
+    public Task<AttemptInfo?> FindLiveAsync(Guid attemptId, CancellationToken ct)
+    { LastAttemptId = attemptId; return Task.FromResult(Attempt); }
 
-    public Task<bool> RegisterWrongAttemptAsync(Guid u, int maxAttempts, CancellationToken ct)
-    { WrongAttemptCalls++; LastMaxAttempts = maxAttempts; return Task.FromResult(ChargeResult); }
+    public Task<bool> RegisterWrongAttemptAsync(Guid attemptId, int maxAttempts, CancellationToken ct)
+    {
+        WrongAttemptCalls++;
+        LastMaxAttempts = maxAttempts;
+        LastAttemptId = attemptId;
+        return Task.FromResult(ChargeResult);
+    }
 
-    public Task<bool> TryMarkConsumedAsync(Guid id, CancellationToken ct)
-    { MarkConsumedCalled = true; return Task.FromResult(ConsumeResult); }
+    public Task<bool> TryMarkConsumedAsync(Guid attemptId, CancellationToken ct)
+    { MarkConsumedCalled = true; LastAttemptId = attemptId; return Task.FromResult(ConsumeResult); }
 }
 
 internal sealed class FakeUnitOfWork : IUnitOfWork
