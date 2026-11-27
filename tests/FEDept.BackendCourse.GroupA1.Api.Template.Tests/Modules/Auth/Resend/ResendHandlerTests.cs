@@ -39,7 +39,15 @@ public class ResendHandlerTests
         Assert.Matches("^[0-9]{6}$", mail.Sent[0].Secret);
         Assert.Equal(ChallengeMethod.Otp, mail.Sent[0].Method);
         Assert.Equal(UserId, mail.Sent[0].AttemptId);
+        Assert.Equal(TimeSpan.FromSeconds(60), mail.Sent[0].ResendAfter);
         Assert.True(mail.Sent[0].ExpiresAt > DateTimeOffset.UtcNow);
+
+        ConfirmationTicket ticket = r.Ticket!;
+        Assert.Equal(mail.Sent[0].AttemptId, ticket.AttemptId);
+        Assert.Equal(TimeSpan.FromMinutes(10), ticket.Ttl);
+        Assert.Equal(TimeSpan.FromSeconds(60), ticket.ResendAfter);
+        Assert.DoesNotContain(mail.Sent[0].Secret,
+            System.Text.Json.JsonSerializer.Serialize(ticket));
     }
 
     [Fact]
@@ -51,6 +59,7 @@ public class ResendHandlerTests
             .ResendAsync("user@example.com", CancellationToken.None);
 
         Assert.Equal(ResendOutcome.Accepted, r.Outcome);
+        Assert.Null(r.Ticket);
         Assert.Empty(mail.Sent);
     }
 

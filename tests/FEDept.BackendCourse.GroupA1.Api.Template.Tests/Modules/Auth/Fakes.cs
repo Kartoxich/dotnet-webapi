@@ -1,3 +1,5 @@
+using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth;
+
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Tests.Modules.Auth;
 
 using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
@@ -9,11 +11,12 @@ internal sealed class FakeUsers : IUserRepository
     public Guid CreatedId { get; } = Guid.NewGuid();
     public string? CreatedEmail { get; private set; }
     public string? CreatedHash { get; private set; }
+    public UserStatus? CreatedStatus { get; private set; }
     public bool FindCalled { get; private set; }
     public Guid? ActivatedId { get; private set; }
 
-    public Task<Guid> CreateAsync(string e, string p, CancellationToken ct)
-    { CreatedEmail = e; CreatedHash = p; return Task.FromResult(CreatedId); }
+    public Task<Guid> CreateAsync(string e, string p, UserStatus status, CancellationToken ct)
+    { CreatedEmail = e; CreatedHash = p; CreatedStatus = status; return Task.FromResult(CreatedId); }
     public Task<Guid?> FindIdByEmailAsync(string e, CancellationToken ct)
     { FindCalled = true; return Task.FromResult(IdByEmail); }
     public Task<Guid?> FindPendingIdByEmailAsync(string e, CancellationToken ct)

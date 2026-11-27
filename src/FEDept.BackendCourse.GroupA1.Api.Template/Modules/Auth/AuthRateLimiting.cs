@@ -12,18 +12,15 @@ public static class AuthRateLimiting
     public const string ConfirmPolicyName = "confirm";
     public const string ResendPolicyName = "resend";
 
-    public static IServiceCollection AddAuthRateLimiting(
-        this IServiceCollection services,
-        IConfiguration config)
+    public static IServiceCollection AddAuthRateLimiting(this IServiceCollection services)
     {
-        var registerPerMinute = config.RequiredInt("Registration:PerMinute");
-
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
             options.AddPolicy(RegisterPolicyName, http =>
-                PerIp(http, registerPerMinute));
+                PerIp(http, http.RequestServices
+                    .GetRequiredService<IOptions<RegistrationOptions>>().Value.PerMinute));
 
             options.AddPolicy(ConfirmPolicyName, http =>
                 PerIp(http, http.RequestServices.GetRequiredService<IOptions<CodeOptions>>().Value.PerMinute));

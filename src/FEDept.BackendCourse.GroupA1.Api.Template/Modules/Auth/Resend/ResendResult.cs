@@ -10,6 +10,10 @@ public sealed record ResendResult(
     IDictionary<string, string[]>? Errors = null)
 {
     public static readonly ResendResult Accepted = new(ResendOutcome.Accepted);
+
+    public static ResendResult Issued(ConfirmationTicket ticket)
+        => new(ResendOutcome.Accepted, ticket);
+
     public static readonly ResendResult MailFailed = new(ResendOutcome.MailFailed);
     public static ResendResult InvalidRequest(IDictionary<string, string[]> e)
         => new(ResendOutcome.InvalidRequest, Errors: e);

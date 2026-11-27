@@ -1,29 +1,30 @@
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Abstractions;
-using FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Confirm;
-
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Register;
 
-public sealed record RegisterPendingResponse(
-    bool ConfirmationRequired,
-    string Method,
-    Guid AttemptId,
-    int ExpiresInSeconds,
-    int ResendAfterSeconds);
+public sealed record RegisterResponse(
+    Guid Id,
+    string Email,
+    string Status);
 
 public static class RegisterResponses
 {
     public static IResult From(RegisterResult r) => r.Outcome switch
     {
-        RegisterOutcome.Success when r.Ticket is { } ticket => Accepted(ticket),
+        RegisterOutcome.Created
+            when r.Id is { } id && r.Email is { } email && r.Status is { } status
+            => Created(id, email, status),
+
+        RegisterOutcome.Pending when r.Ticket is { } ticket
+            => Results.Accepted(value: ConfirmationTicketResponses.From(ticket)),
+
         RegisterOutcome.MailFailed => MailFailure.Response(),
-        _ => TypedResults.ValidationProblem(r.Errors!),
+
+        RegisterOutcome.InvalidRequest when r.Errors is { } errors
+            => TypedResults.ValidationProblem(errors),
+
+        _ => throw new ArgumentOutOfRangeException(nameof(r), r.Outcome, "Unmapped register outcome"),
     };
 
-    private static IResult Accepted(ConfirmationTicket ticket) => Results.Accepted(
-        value: new RegisterPendingResponse(
-            ConfirmationRequired: true,
-            Method: ticket.Method.ToColumn(),
-            AttemptId: ticket.AttemptId,
-            ExpiresInSeconds: (int)ticket.Ttl.TotalSeconds,
-            ResendAfterSeconds: (int)ticket.Ttl.TotalSeconds));
+    private static IResult Created(Guid id, string email, UserStatus status) => Results.Created(
+        uri: $"/auth/users/{id}",
+        value: new RegisterResponse(id, email, status.ToColumn()));
 }

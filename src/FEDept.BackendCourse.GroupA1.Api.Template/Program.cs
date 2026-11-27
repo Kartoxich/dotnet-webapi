@@ -34,7 +34,7 @@ builder.Services.AddOpenApi()
     .AddScoped<ResendHandler>()
     .AddSingleton<IPasswordHasher, BCryptPasswordHasher>()
     .AddSingleton<IEmailSender, SmtpEmailSender>()
-    .AddAuthRateLimiting(builder.Configuration)
+    .AddAuthRateLimiting()
     .ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(
         new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));

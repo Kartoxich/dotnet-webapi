@@ -8,9 +8,12 @@ using MimeKit;
 
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Email;
 
-public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSender
+public sealed class SmtpEmailSender(
+    IOptions<SmtpOptions> options,
+    IOptions<EmailOptions> emailOptions) : IEmailSender
 {
     private readonly SmtpOptions _options = options.Value;
+    private readonly EmailOptions _emailOptions = emailOptions.Value;
 
     public async Task SendConfirmationAsync(ConfirmationMessage message, CancellationToken ct)
     {
@@ -40,7 +43,7 @@ public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSende
             ChallengeMethod.MagicLink => (
                 "Confirm your email",
                 $"Open this page and confirm your account:\r\n" +
-                $"{_options.LinkBaseUrl}?token={Uri.EscapeDataString(message.Secret)}\r\n\r\n" +
+                $"{_emailOptions.ConfirmationLinkBaseUrl}?token={Uri.EscapeDataString(message.Secret)}\r\n\r\n" +
                 $"It expires in {message.Ttl.TotalMinutes:0} minutes.\r\n\r\n" +
                 "If you did not request this, ignore this email."),
 

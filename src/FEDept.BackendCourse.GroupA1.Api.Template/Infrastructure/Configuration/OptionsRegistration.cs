@@ -3,6 +3,8 @@ namespace FEDept.BackendCourse.GroupA1.Api.Template.Infrastructure.Configuration
 public static class OptionsRegistration
 {
     private const string CodeSection = "Code";
+    private const string EmailSection = "Email";
+    private const string RegistrationSection = "Registration";
     private const string ResendSection = "Resend";
     private const string SmtpSection = "Smtp";
     private const string SecuritySection = "Security";
@@ -33,10 +35,19 @@ public static class OptionsRegistration
             .Validate(o => !string.IsNullOrWhiteSpace(o.Host), $"{SmtpSection}:Host is required.")
             .Validate(o => o.Port is > 0 and <= 65535, $"{SmtpSection}:Port must be a valid port.")
             .Validate(o => !string.IsNullOrWhiteSpace(o.From), $"{SmtpSection}:From is required.")
-            .Validate(o => Uri.TryCreate(o.LinkBaseUrl, UriKind.Absolute, out _),
-                $"{SmtpSection}:LinkBaseUrl must be an absolute URL.")
             .Validate(o => Enum.IsDefined(o.Security),
                 $"{SmtpSection}:Security must be one of: {string.Join(", ", Enum.GetNames<MailKit.Security.SecureSocketOptions>())}.")
+            .ValidateOnStart();
+
+        services.AddOptions<RegistrationOptions>()
+            .Bind(config.GetSection(RegistrationSection))
+            .Validate(o => o.PerMinute > 0, $"{RegistrationSection}:PerMinute must be positive.")
+            .ValidateOnStart();
+
+        services.AddOptions<EmailOptions>()
+            .Bind(config.GetSection(EmailSection))
+            .Validate(o => Uri.TryCreate(o.ConfirmationLinkBaseUrl, UriKind.Absolute, out _),
+                $"{EmailSection}:ConfirmationLinkBaseUrl must be an absolute URL.")
             .ValidateOnStart();
 
         services.AddOptions<SecurityOptions>()
@@ -47,7 +58,4 @@ public static class OptionsRegistration
 
         return services;
     }
-
-    public static int RequiredInt(this IConfiguration config, string key) =>
-        config.GetValue<int?>(key) ?? throw new InvalidOperationException($"Missing {key}");
 }

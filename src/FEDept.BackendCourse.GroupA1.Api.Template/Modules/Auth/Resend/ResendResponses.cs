@@ -1,15 +1,21 @@
 namespace FEDept.BackendCourse.GroupA1.Api.Template.Modules.Auth.Resend;
 
-public sealed record ResendResponse(string Message);
-
 public static class ResendResponses
 {
     public static IResult From(ResendResult result) => result.Outcome switch
     {
-        ResendOutcome.InvalidRequest => TypedResults.ValidationProblem(result.Errors!),
+        ResendOutcome.Accepted when result.Ticket is { } ticket
+            => Results.Accepted(value: ConfirmationTicketResponses.From(ticket)),
+
+        ResendOutcome.Accepted
+            => Results.Accepted(value: ConfirmationTicketResponses.Neutral()),
+
         ResendOutcome.MailFailed => MailFailure.Response(),
-        _ => TypedResults.Accepted((string?)null, new ResendResponse(
-            "If your account needs a confirmation code, one may have been sent. " +
-            "If you don't see it, try again in a minute."))
+
+        ResendOutcome.InvalidRequest when result.Errors is { } errors
+            => TypedResults.ValidationProblem(errors),
+
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(result), result.Outcome, "Unmapped resend outcome"),
     };
 }

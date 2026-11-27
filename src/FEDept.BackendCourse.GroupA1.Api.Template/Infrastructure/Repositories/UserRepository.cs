@@ -12,6 +12,7 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
     public async Task<Guid> CreateAsync(
         string email,
         string passwordHash,
+        UserStatus status,
         CancellationToken ct
     )
     {
@@ -19,7 +20,7 @@ public sealed class UserRepository(AppDbContext db) : IUserRepository
         {
             Email = email,
             PasswordHash = passwordHash,
-            Status = UserStatus.Pending
+            Status = status
         };
 
         db.Users.Add(user);

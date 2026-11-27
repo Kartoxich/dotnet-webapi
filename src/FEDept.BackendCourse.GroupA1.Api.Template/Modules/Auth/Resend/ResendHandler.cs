@@ -40,10 +40,10 @@ public sealed class ResendHandler(
         var (code, hash) = ConfirmationCode.New(_codeOptions.KeyBytes);
         DateTimeOffset expiresAt = DateTimeOffset.UtcNow.AddMinutes(_codeOptions.TtlMinutes);
         var ttl = TimeSpan.FromMinutes(_codeOptions.TtlMinutes);
+        var resendAfter = TimeSpan.FromSeconds(_resendOptions.CooldownSeconds);
 
         CodeIssue issued = await challenges.IssueAsync(
-            userId.Value, hash, expiresAt,
-            TimeSpan.FromSeconds(_resendOptions.CooldownSeconds), ct);
+            userId.Value, hash, expiresAt, resendAfter, ct);
 
         if (issued == CodeIssue.Throttled)
         {
@@ -52,7 +52,7 @@ public sealed class ResendHandler(
         }
 
         var message = new ConfirmationMessage(
-            normalized, ChallengeMethod.Otp, code, userId.Value, expiresAt, ttl);
+            normalized, ChallengeMethod.Otp, code, userId.Value, expiresAt, ttl, resendAfter);
 
         try
         {
@@ -66,6 +66,6 @@ public sealed class ResendHandler(
 
         await unitOfWork.SaveChangesAsync(ct);
 
-        return ResendResult.Accepted;
+        return ResendResult.Issued(message.Ticket);
     }
 }
